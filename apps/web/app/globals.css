@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+@import '@nexus/ui/tokens.css';
+
+/* Expose the tokens as Tailwind utilities (bg-page, text-ink, border-hairline, …). */
+@theme inline {
+  --color-page: var(--surface-page);
+  --color-card: var(--surface-card);
+  --color-raised: var(--surface-raised);
+  --color-hairline: var(--border-hairline);
+  --color-strong: var(--border-strong);
+  --color-ink: var(--ink-primary);
+  --color-ink-secondary: var(--ink-secondary);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-link: var(--ink-link);
+  --color-good: var(--status-good);
+  --color-warning: var(--status-warning);
+  --color-serious: var(--status-serious);
+  --color-critical: var(--status-critical);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --radius-control: var(--radius-control);
+  --radius-card: var(--radius-card);
+  --ease-standard: var(--ease-standard);
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+}
+
+body {
+  background: var(--surface-page);
+  color: var(--ink-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--duration-layout) var(--ease-standard);
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-control);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
