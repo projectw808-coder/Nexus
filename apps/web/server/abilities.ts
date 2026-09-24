@@ -1,7 +1,7 @@
 /**
  * CASL abilities derived from role + per-connection grants (§5.2). One ability object per
- * request; checked in tRPC middleware, in serializers (Phase 2 field-level) and in the export
- * job (Phase 11). Connection permissions are conditioned on the connection id so a member can
+ * request; checked in tRPC middleware, in serializers (field-level via attributeAccess) and in
+ * the export job. Connection permissions are conditioned on the connection id so a member can
  * be `engage` on Instagram and `read`-only on LinkedIn.
  */
 import { AbilityBuilder, createMongoAbility, type MongoAbility } from '@casl/ability';
@@ -19,7 +19,8 @@ export type Action =
   | 'engage'
   | 'publish'
   | 'configure'
-  | 'export';
+  | 'export'
+  | 'import';
 
 export type SubjectName =
   | 'Workspace'
@@ -29,8 +30,13 @@ export type SubjectName =
   | 'Connection'
   | 'ConnectionGrant'
   | 'ApiKey'
+  | 'ObjectType'
+  | 'Attribute'
   | 'Record'
   | 'List'
+  | 'ListEntry'
+  | 'SavedView'
+  | 'ImportJob'
   | 'Conversation'
   | 'all';
 
@@ -65,17 +71,43 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       break;
     case 'MANAGER':
       can('read', 'all');
-      can(['create', 'update', 'delete'], ['Record', 'List', 'Conversation']);
-      can('export', ['Record', 'List', 'Conversation']);
+      can(
+        ['create', 'update', 'delete', 'export', 'import'],
+        ['Record', 'List', 'ListEntry', 'Conversation', 'ImportJob'],
+      );
+      can(['create', 'update', 'delete'], 'SavedView');
       cannot('read', ['ApiKey', 'ConnectionGrant']);
       break;
     case 'MEMBER':
-      can('read', ['Workspace', 'Membership', 'Record', 'List', 'Conversation', 'Connection']);
-      can(['create', 'update'], ['Record', 'Conversation']);
-      can('update', 'List');
+      can('read', [
+        'Workspace',
+        'Membership',
+        'ObjectType',
+        'Attribute',
+        'Record',
+        'List',
+        'ListEntry',
+        'SavedView',
+        'Conversation',
+        'Connection',
+      ]);
+      can(['create', 'update'], ['Record', 'Conversation', 'ListEntry']);
+      can('export', 'Record');
+      can(['create', 'update', 'delete'], 'SavedView');
       break;
     case 'VIEWER':
-      can('read', ['Workspace', 'Membership', 'Record', 'List', 'Conversation', 'Connection']);
+      can('read', [
+        'Workspace',
+        'Membership',
+        'ObjectType',
+        'Attribute',
+        'Record',
+        'List',
+        'ListEntry',
+        'SavedView',
+        'Conversation',
+        'Connection',
+      ]);
       break;
   }
 

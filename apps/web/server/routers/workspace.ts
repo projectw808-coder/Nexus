@@ -1,6 +1,6 @@
 import { SLUG_PATTERN, diffOf } from '@nexus/db';
 import { z } from 'zod';
-import { authorize, router, tenantProcedure, userProcedure } from '../trpc';
+import { authorize, router, tenantJobProcedure, tenantProcedure, userProcedure } from '../trpc';
 
 export const workspaceRouter = router({
   /** Workspaces the signed-in user belongs to. */
@@ -23,11 +23,16 @@ export const workspaceRouter = router({
       }),
     ),
 
-  current: tenantProcedure.query(async ({ ctx }) => {
-    const ws = await ctx.db.workspace.findUniqueOrThrow({
-      where: { id: ctx.workspace.id },
-      select: { id: true, name: true, slug: true, plan: true, region: true, createdAt: true },
-    });
+  // No ambient transaction: the upgrade path below opens its own (PGlite cannot nest them).
+  current: tenantJobProcedure.query(async ({ ctx }) => {
+    // A workspace from before the object graph gets its system objects on first open.
+    await ctx.tenancy.ensureSystemObjects(ctx.workspace.id);
+    const ws = await ctx.runtime.withTenant(ctx.actor, (db) =>
+      db.workspace.findUniqueOrThrow({
+        where: { id: ctx.workspace.id },
+        select: { id: true, name: true, slug: true, plan: true, region: true, createdAt: true },
+      }),
+    );
     return { ...ws, role: ctx.actor.role };
   }),
 

@@ -25,6 +25,7 @@ import {
 import { initTRPC, TRPCError, type TRPC_ERROR_CODE_KEY } from '@trpc/server';
 import superjson from 'superjson';
 import type { MailProvider } from '@/lib/mail/provider';
+import type { JobDispatcher } from './jobs';
 import { defineAbilityFor, type Action, type AppAbility, type Subject } from './abilities';
 
 export type SessionUser = { id: string; email: string; name: string | null };
@@ -39,6 +40,7 @@ export type Context = {
   tenancy: Tenancy;
   mail: MailProvider;
   appUrl: string;
+  jobs: JobDispatcher;
 };
 
 export type AuditRecorder = {
@@ -162,6 +164,39 @@ export const tenantProcedure = userProcedure.use(async ({ ctx, next, type, path 
     return result;
   });
 });
+
+/**
+ * Like tenantProcedure but WITHOUT the ambient transaction: for long-running work (imports,
+ * index builds) that opens its own short transactions through `ctx.runtime`. Mutations audit
+ * through `ctx.audit`, which writes in a transaction of its own.
+ */
+export const tenantJobProcedure = userProcedure.use(async ({ ctx, next, type, path }) => {
+  if (!ctx.slug) throw new TRPCError({ code: 'BAD_REQUEST', message: 'No workspace selected.' });
+  const resolved = await ctx.tenancy.resolveActor(ctx.session.id, ctx.slug, {
+    ip: ctx.ip,
+    userAgent: ctx.userAgent,
+  });
+  if (!resolved) throw new TRPCError({ code: 'NOT_FOUND', message: 'Workspace not found.' });
+  const { workspace, ...actor } = resolved;
+  const ability = defineAbilityFor(actor);
+  let count = 0;
+  const record = async (entry: AuditEntry): Promise<void> => {
+    await ctx.runtime.withTenant(actor, (db) => writeAudit(db, actor, entry));
+    count += 1;
+  };
+  const audit = Object.defineProperty(record, 'count', { get: () => count }) as AuditRecorder;
+  const result = await next({ ctx: { ...ctx, actor, workspace, ability, audit } });
+  if (result.ok && type === 'mutation' && audit.count === 0) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Request could not be completed.',
+      cause: new Error(`mutation ${path} completed without writing an audit row`),
+    });
+  }
+  return result;
+});
+
+export type TenantJobContext = Omit<TenantContext, 'db'>;
 
 /** Gate a tenant procedure on the CASL ability. */
 export function authorize(action: Action, subject: Subject) {

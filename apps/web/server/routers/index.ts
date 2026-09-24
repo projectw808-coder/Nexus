@@ -1,7 +1,14 @@
 import { router, userProcedure } from '../trpc';
 import { auditRouter } from './audit';
+import { exportRouter } from './export';
+import { importRouter } from './imports';
 import { invitationRouter } from './invitation';
+import { listEntryRouter, listRouter } from './lists';
 import { memberRouter } from './member';
+import { attributeRouter, objectTypeRouter } from './objects';
+import { companyRouter, dealRouter, personRouter, recordRouter } from './records';
+import { searchRouter } from './search';
+import { viewRouter } from './views';
 import { workspaceRouter } from './workspace';
 
 export const appRouter = router({
@@ -12,6 +19,19 @@ export const appRouter = router({
   member: memberRouter,
   invitation: invitationRouter,
   audit: auditRouter,
+  // Phase 2 — the object graph
+  objectType: objectTypeRouter,
+  attribute: attributeRouter,
+  record: recordRouter,
+  person: personRouter,
+  company: companyRouter,
+  deal: dealRouter,
+  list: listRouter,
+  listEntry: listEntryRouter,
+  view: viewRouter,
+  search: searchRouter,
+  import: importRouter,
+  export: exportRouter,
 });
 
 export type AppRouter = typeof appRouter;

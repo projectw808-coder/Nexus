@@ -5,12 +5,14 @@
 import type { Actor } from '@nexus/db';
 import { createTestDatabase, type TestDatabase } from '@nexus/db/testing';
 import { MemoryMailProvider } from '@/lib/mail/provider';
+import { recordingDispatcher } from './jobs';
 import { appRouter } from './routers';
 import { createCallerFactory, type Context, type SessionUser } from './trpc';
 
 export type Seed = {
   db: TestDatabase;
   mail: MemoryMailProvider;
+  jobs: ReturnType<typeof recordingDispatcher>;
   users: { alice: SessionUser; bob: SessionUser; carol: SessionUser };
   /** Alice owns Acme; Bob owns Globex; Carol is a VIEWER in Acme. */
   acme: { id: string; slug: string };
@@ -25,6 +27,7 @@ export type Caller = ReturnType<typeof callerFactory>;
 export async function seedWorkspaces(): Promise<Seed> {
   const db = await createTestDatabase();
   const mail = new MemoryMailProvider();
+  const jobs = recordingDispatcher();
   const mk = async (email: string, name: string): Promise<SessionUser> => {
     const u = await db.prisma.user.create({ data: { email, name } });
     return { id: u.id, email: u.email, name: u.name };
@@ -58,6 +61,7 @@ export async function seedWorkspaces(): Promise<Seed> {
       tenancy: db.tenancy,
       mail,
       appUrl: 'http://localhost:3000',
+      jobs,
     };
     return callerFactory(ctx);
   };
@@ -65,6 +69,7 @@ export async function seedWorkspaces(): Promise<Seed> {
   return {
     db,
     mail,
+    jobs,
     users: { alice, bob, carol },
     acme,
     globex,
