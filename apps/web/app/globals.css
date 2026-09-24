@@ -43,6 +43,15 @@ body {
   border-radius: var(--radius-control);
 }
 
+.text-link {
+  text-decoration-line: underline;
+  text-decoration-color: color-mix(in oklab, var(--ink-link) 45%, transparent);
+  text-underline-offset: 0.15em;
+}
+.text-link:hover {
+  text-decoration-color: var(--ink-link);
+}
+
 .tnum {
   font-variant-numeric: tabular-nums;
 }

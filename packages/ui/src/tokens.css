@@ -21,9 +21,9 @@
   /* ── ink ──────────────────────────────────────────────────────────── */
   --ink-primary: #0b0b0b;
   --ink-secondary: #52514e;
-  --ink-muted: #898781;
+  --ink-muted: #6f6e69; /* 4.85:1 on the page surface (AA for small text) */
   --ink-inverse: #ffffff;
-  --ink-link: #2a78d6;
+  --ink-link: #1f63bd; /* 5.6:1 */
 
   /* ── status (reserved; always shipped with an icon + label, never colour alone) */
   --status-good: #0ca30c;
@@ -138,9 +138,9 @@
     --border-strong: rgba(255, 255, 255, 0.2);
     --ink-primary: #ffffff;
     --ink-secondary: #c3c2b7;
-    --ink-muted: #898781;
+    --ink-muted: #9c9a93; /* 5.6:1 on the raised surface */
     --ink-inverse: #0b0b0b;
-    --ink-link: #3987e5;
+    --ink-link: #5a9ff0; /* 5.7:1 */
     --series-1: #3987e5;
     --series-2: #d95926;
     --series-3: #199e70;
@@ -171,9 +171,9 @@
   --border-strong: rgba(255, 255, 255, 0.2);
   --ink-primary: #ffffff;
   --ink-secondary: #c3c2b7;
-  --ink-muted: #898781;
+  --ink-muted: #9c9a93;
   --ink-inverse: #0b0b0b;
-  --ink-link: #3987e5;
+  --ink-link: #5a9ff0;
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;

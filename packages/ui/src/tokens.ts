@@ -32,8 +32,8 @@ export const DIVERGING: Record<Mode, { low: string; mid: string; high: string }>
 };
 
 export const CHART_CHROME: Record<Mode, { grid: string; baseline: string; label: string }> = {
-  light: { grid: '#e1e0d9', baseline: '#c3c2b7', label: '#898781' },
-  dark: { grid: '#2c2c2a', baseline: '#383835', label: '#898781' },
+  light: { grid: '#e1e0d9', baseline: '#c3c2b7', label: '#6f6e69' },
+  dark: { grid: '#2c2c2a', baseline: '#383835', label: '#9c9a93' },
 };
 
 /** Never a data-series colour. Always paired with an icon + label. */
