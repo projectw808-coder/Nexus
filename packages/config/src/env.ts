@@ -29,7 +29,15 @@ export const envSchema = z.object({
   SERVICE_NAME: z.string().default('nexus'),
 
   // ── infrastructure ───────────────────────────────────────────────────────
-  DATABASE_URL: z.url().refine((u) => u.startsWith('postgres'), 'must be a postgres:// URL'),
+  /** postgres(ql):// for the pg adapter, or pglite://<dir> for the in-process dev backend (ADR-008). */
+  DATABASE_URL: z
+    .string()
+    .refine(
+      (u) => /^(postgres(ql)?|pglite):\/\//.test(u),
+      'must be a postgres:// or pglite:// URL',
+    ),
+  /** Table-owner URL for migrations and the drift gate. Falls back to DATABASE_URL. */
+  DATABASE_ADMIN_URL: optional,
   SHADOW_DATABASE_URL: optional,
   REDIS_URL: z.url().refine((u) => u.startsWith('redis'), 'must be a redis:// URL'),
   S3_ENDPOINT: z.url(),
@@ -47,6 +55,14 @@ export const envSchema = z.object({
   KMS_MASTER_KEY_ID: z.string().min(1),
   /** 32 bytes, base64. Used when KMS_MASTER_KEY_ID is `local:*` (dev/test only). */
   ENCRYPTION_KEY_FALLBACK: optional,
+
+  // ── auth & mail ──────────────────────────────────────────────────────────
+  SMTP_URL: optional,
+  EMAIL_FROM: z.string().default('Nexus <no-reply@nexus.local>'),
+  AUTH_MICROSOFT_ENTRA_ID_ID: optional,
+  AUTH_MICROSOFT_ENTRA_ID_SECRET: optional,
+  AUTH_MICROSOFT_ENTRA_ID_ISSUER: optional,
+  AUTH_TRUST_HOST: bool('true'),
 
   // ── Meta ─────────────────────────────────────────────────────────────────
   META_APP_ID: optional,

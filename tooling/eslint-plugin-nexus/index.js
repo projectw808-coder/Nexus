@@ -74,7 +74,7 @@ const noBasePrisma = {
     schema: [],
     messages: {
       banned:
-        'basePrisma bypasses tenant scoping. Use withTenant(actor, db => …) from @nexus/db instead.',
+        'basePrisma / withSystem bypass tenant scoping. Use withTenant(actor, db => …) from @nexus/db instead.',
     },
   },
   create(context) {
@@ -84,7 +84,13 @@ const noBasePrisma = {
       ImportSpecifier(node) {
         const imported =
           node.imported.type === 'Identifier' ? node.imported.name : node.imported.value;
-        if (imported === 'basePrisma') context.report({ node, messageId: 'banned' });
+        if (
+          imported === 'basePrisma' ||
+          imported === 'getBasePrisma' ||
+          imported === 'withSystem'
+        ) {
+          context.report({ node, messageId: 'banned' });
+        }
       },
       ImportDeclaration(node) {
         if (/generated\/prisma/.test(String(node.source.value))) {

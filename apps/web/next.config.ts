@@ -19,6 +19,11 @@ const nextConfig: NextConfig = {
     'pino',
     'pino-pretty',
     'bullmq',
+    'ioredis',
+    // pglite:// dev backend: WASM + extension bundles must load from node_modules, not /_next.
+    '@electric-sql/pglite',
+    '@electric-sql/pglite-pgvector',
+    'pglite-prisma-adapter',
   ],
 };
 

@@ -6,3 +6,4 @@ pnpm-lock.yaml
 packages/db/src/generated
 packages/db/prisma/migrations
 apps/web/next-env.d.ts
+packages/db/src/generated-tenant-models.ts

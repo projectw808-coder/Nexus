@@ -63,3 +63,12 @@ describe('env: blank values', () => {
     expect(env.X_CYCLE_SPEND_CAP_USD).toBeUndefined();
   });
 });
+
+describe('env: database backends', () => {
+  it('accepts pglite:// as well as postgres://', () => {
+    expect(parseEnv({ ...minimal, DATABASE_URL: 'pglite://./.data/nexus' }).DATABASE_URL).toBe(
+      'pglite://./.data/nexus',
+    );
+    expect(() => parseEnv({ ...minimal, DATABASE_URL: 'mysql://x' })).toThrow(/DATABASE_URL/);
+  });
+});

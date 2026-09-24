@@ -15,3 +15,4 @@ infra/.data/
 Thumbs.db
 apps/web/next-env.d.ts
 .claude/
+.data/

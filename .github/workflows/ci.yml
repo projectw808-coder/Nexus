@@ -11,7 +11,8 @@ concurrency:
 
 env:
   NODE_ENV: test
-  DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus
+  DATABASE_URL: postgresql://nexus_app:nexus_app@localhost:5432/nexus
+  DATABASE_ADMIN_URL: postgresql://nexus:nexus@localhost:5432/nexus
   SHADOW_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_shadow
   REDIS_URL: redis://localhost:6379
   S3_ENDPOINT: http://localhost:9000
@@ -64,8 +65,10 @@ jobs:
       - name: Unit + integration tests
         run: pnpm test
 
-      - name: Create shadow database
-        run: psql "$DATABASE_URL" -c 'CREATE DATABASE nexus_shadow;'
+      - name: Create app role and shadow database
+        run: |
+          psql "$DATABASE_ADMIN_URL" -c "CREATE ROLE nexus_app LOGIN PASSWORD 'nexus_app' NOSUPERUSER NOBYPASSRLS;"
+          psql "$DATABASE_ADMIN_URL" -c 'CREATE DATABASE nexus_shadow;'
       - name: Apply migrations
         run: pnpm db:deploy
       - name: Migration drift gate
