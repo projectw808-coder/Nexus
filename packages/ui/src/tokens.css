@@ -1,0 +1,201 @@
+/*
+ * Nexus design tokens (spec §12.3, §12.4). Single source of truth for colour, type, spacing,
+ * radius, motion. Consumed by Tailwind v4 via @theme in apps/web/app/globals.css.
+ *
+ * Theme precedence: an explicit data-theme beats the OS in both directions.
+ *   - no attribute      → follow prefers-color-scheme
+ *   - data-theme=light  → light, even if the OS is dark
+ *   - data-theme=dark   → dark, even if the OS is light
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ── surfaces ─────────────────────────────────────────────────────── */
+  --surface-page: #f9f9f7;
+  --surface-card: #fcfcfb;
+  --surface-raised: #ffffff;
+  --border-hairline: rgba(11, 11, 11, 0.1);
+  --border-strong: rgba(11, 11, 11, 0.2);
+
+  /* ── ink ──────────────────────────────────────────────────────────── */
+  --ink-primary: #0b0b0b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+  --ink-inverse: #ffffff;
+  --ink-link: #2a78d6;
+
+  /* ── status (reserved; always shipped with an icon + label, never colour alone) */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --status-good-bg: rgba(12, 163, 12, 0.1);
+  --status-warning-bg: rgba(250, 178, 25, 0.14);
+  --status-serious-bg: rgba(236, 131, 90, 0.14);
+  --status-critical-bg: rgba(208, 59, 59, 0.1);
+
+  /* ── categorical series (fixed order, never cycled; a 9th series folds to "Other") */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #4a3aa7;
+  --series-8: #e34948;
+
+  /* ── sequential (one hue, light → dark) and diverging (blue ↔ red, neutral midpoint) */
+  --seq-start: #cde2fb;
+  --seq-end: #0d366b;
+  --funnel-start: #86b6ef;
+  --div-low: #2a78d6;
+  --div-mid: #f0efec;
+  --div-high: #e34948;
+
+  /* ── chart chrome ─────────────────────────────────────────────────── */
+  --chart-grid: #e1e0d9;
+  --chart-baseline: #c3c2b7;
+  --chart-label: var(--ink-muted);
+  --chart-mark-gap: var(--surface-card);
+
+  /* ── platform accents: chips, connector cards, source badges ONLY ── */
+  --platform-facebook: #1877f2;
+  --platform-instagram: #e1306c;
+  --platform-x: #0b0b0b;
+  --platform-linkedin: #0a66c2;
+  --platform-tiktok: #fe2c55;
+  --platform-youtube: #ff0000;
+  --platform-gmail: #ea4335;
+  --platform-google-calendar: #4285f4;
+  --platform-google-business: #34a853;
+  --platform-keitaro: #f0821e;
+  --platform-mock: #898781;
+
+  /* ── typography ───────────────────────────────────────────────────── */
+  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
+  --text-md: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+  --text-2xl: 32px;
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+
+  /* ── spacing (4px base; 8/12/16/24/32 the working set) ─────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+
+  /* ── density (comfortable by default; [data-density=compact] overrides) */
+  --row-height: 40px;
+  --control-height: 32px;
+  --cell-padding-x: var(--space-3);
+  --cell-padding-y: var(--space-2);
+
+  /* ── radius & elevation (two levels only; prefer hairlines over shadows) */
+  --radius-control: 6px;
+  --radius-card: 10px;
+  --radius-pill: 999px;
+  --elevation-1: 0 1px 2px rgba(11, 11, 11, 0.06);
+  --elevation-2: 0 4px 16px rgba(11, 11, 11, 0.1);
+
+  /* ── motion ───────────────────────────────────────────────────────── */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --duration-state: 120ms;
+  --duration-layout: 200ms;
+
+  /* ── focus ────────────────────────────────────────────────────────── */
+  --focus-ring: 0 0 0 2px var(--surface-page), 0 0 0 4px var(--ink-link);
+
+  /* ── layout ───────────────────────────────────────────────────────── */
+  --rail-collapsed: 64px;
+  --rail-expanded: 240px;
+}
+
+[data-density='compact'] {
+  --row-height: 32px;
+  --control-height: 28px;
+  --cell-padding-x: var(--space-2);
+  --cell-padding-y: var(--space-1);
+}
+
+/* Dark: OS preference, unless an explicit light toggle is set. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --surface-page: #0d0d0d;
+    --surface-card: #1a1a19;
+    --surface-raised: #232322;
+    --border-hairline: rgba(255, 255, 255, 0.1);
+    --border-strong: rgba(255, 255, 255, 0.2);
+    --ink-primary: #ffffff;
+    --ink-secondary: #c3c2b7;
+    --ink-muted: #898781;
+    --ink-inverse: #0b0b0b;
+    --ink-link: #3987e5;
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --series-6: #008300;
+    --series-7: #9085e9;
+    --series-8: #e66767;
+    --funnel-start: #184f95;
+    --div-low: #3987e5;
+    --div-mid: #383835;
+    --div-high: #e66767;
+    --chart-grid: #2c2c2a;
+    --chart-baseline: #383835;
+    --platform-x: #ffffff;
+    --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Dark: explicit toggle, beats the OS. Same values as above — keep the two blocks in sync. */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --surface-page: #0d0d0d;
+  --surface-card: #1a1a19;
+  --surface-raised: #232322;
+  --border-hairline: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.2);
+  --ink-primary: #ffffff;
+  --ink-secondary: #c3c2b7;
+  --ink-muted: #898781;
+  --ink-inverse: #0b0b0b;
+  --ink-link: #3987e5;
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --funnel-start: #184f95;
+  --div-low: #3987e5;
+  --div-mid: #383835;
+  --div-high: #e66767;
+  --chart-grid: #2c2c2a;
+  --chart-baseline: #383835;
+  --platform-x: #ffffff;
+  --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-state: 0ms;
+    --duration-layout: 0ms;
+  }
+}
