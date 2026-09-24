@@ -17,3 +17,25 @@ export type * from './generated/prisma/models.ts';
 export type { Prisma, PrismaClient } from './generated/prisma/client.ts';
 
 export { TENANT_MODELS, NON_TENANT_MODELS, isTenantModel } from './tenant-models.ts';
+
+// ── Phase 1: the tenant boundary ────────────────────────────────────────────
+export { withTenant, withSystem, runtime, tenancy } from './runtime.ts';
+export { createTenantRuntime, scopedClient, scopeArgs, TenantScopeError } from './scoped.ts';
+export type {
+  Actor,
+  ActorGrant,
+  TenantDb,
+  SystemDb,
+  TenantContext,
+  TenantRuntime,
+} from './scoped.ts';
+export { writeAudit, writeSystemAudit, diffOf } from './audit.ts';
+export type { AuditEntry } from './audit.ts';
+export { createTenancy, hashToken, generateToken, SLUG_PATTERN } from './tenancy.ts';
+export type { Tenancy, WorkspaceSummary } from './tenancy.ts';
+export { MODEL_META } from './generated-tenant-models.ts';
+export type { ModelMeta, RelationMeta } from './generated-tenant-models.ts';
+
+// ── Auth.js adapter (non-tenant tables; lazily bound to the base client) ────
+export { authAdapter, createAuthAdapter } from './auth-adapter.ts';
+export type { AuthAdapter } from './auth-adapter.ts';

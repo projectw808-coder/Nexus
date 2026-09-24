@@ -32,7 +32,7 @@ describe('TENANT_MODELS', () => {
 
   it('is byte-for-byte what the generator would write', () => {
     const onDisk = readFileSync(new URL('./generated-tenant-models.ts', import.meta.url), 'utf8');
-    expect(onDisk, STALE_HINT).toBe(renderGeneratedFile(fromDmmf));
+    expect(onDisk, STALE_HINT).toBe(renderGeneratedFile(dm));
   });
 
   it('every model without workspaceId is on the explicit non-tenant allowlist', () => {

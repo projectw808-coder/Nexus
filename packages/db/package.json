@@ -4,10 +4,12 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
   },
   "scripts": {
     "drift": "tsx scripts/drift-gate.ts",
+    "gen:rls": "tsx scripts/gen-rls-sql.ts",
     "generate": "prisma generate && tsx scripts/gen-tenant-models.ts",
     "lint": "eslint .",
     "migrate:deploy": "prisma migrate deploy",
@@ -17,10 +19,15 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
+    "@auth/prisma-adapter": "^2.11.3",
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-pgvector": "^0.0.9",
+    "@nexus/core": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
     "dotenv": "^17.2.0",
     "pg": "^8.23.0",
+    "pglite-prisma-adapter": "^0.7.2",
     "zod": "^4.6.5"
   },
   "devDependencies": {

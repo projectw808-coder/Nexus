@@ -35,7 +35,7 @@ if (unexpected.length > 0) {
   process.exit(1);
 }
 
-const next = renderGeneratedFile(tenant);
+const next = renderGeneratedFile(dm);
 const current = existsSync(OUTPUT_FILE) ? readFileSync(OUTPUT_FILE, 'utf8') : null;
 const rel = path.relative(PACKAGE_ROOT, OUTPUT_FILE);
 

@@ -113,17 +113,77 @@ export function allModelsFromSchemaText(schemaText: string): string[] {
   return [...schemaText.matchAll(/^model\s+(\w+)\s*\{/gm)].map((m) => m[1]!).filter(Boolean);
 }
 
+/** Relation fields per model, as the scoped client needs them (§5.3 nested traversal). */
+export type RelationMeta = { model: string; isList: boolean };
+export type ModelMeta = { table: string; relations: Record<string, RelationMeta> };
+
+/**
+ * `Model.field` keys of every list-typed field (`Type[]`). The runtime data model does not
+ * record list-ness, so it is read from schema.prisma, which the generator validates against
+ * the data model anyway (same model set).
+ */
+export function listFieldsFromSchemaText(schemaText: string): Set<string> {
+  const out = new Set<string>();
+  const modelRe = /^model\s+(\w+)\s*\{([\s\S]*?)^\}/gm;
+  for (const m of schemaText.matchAll(modelRe)) {
+    const name = m[1];
+    for (const line of (m[2] ?? '').split('\n')) {
+      const t = line.trim();
+      if (t === '' || t.startsWith('//') || t.startsWith('@@')) continue;
+      const [field, type] = t.split(/\s+/);
+      if (field && type && type.endsWith('[]')) out.add(`${name}.${field}`);
+    }
+  }
+  return out;
+}
+
+export function modelMetaFromDataModel(
+  dm: RuntimeDataModel,
+  schemaText: string = readFileSync(SCHEMA_FILE, 'utf8'),
+): Record<string, ModelMeta> {
+  const lists = listFieldsFromSchemaText(schemaText);
+  const out: Record<string, ModelMeta> = {};
+  for (const [name, model] of Object.entries(dm.models).sort(([a], [b]) => a.localeCompare(b))) {
+    const relations: Record<string, RelationMeta> = {};
+    for (const f of model.fields) {
+      if (f.kind === 'object') {
+        relations[f.name] = { model: f.type, isList: lists.has(`${name}.${f.name}`) };
+      }
+    }
+    out[name] = { table: model.dbName ?? name, relations };
+  }
+  return out;
+}
+
 /** Renders the checked-in generated file. */
-export function renderGeneratedFile(tenantModels: readonly string[]): string {
+export function renderGeneratedFile(dm: RuntimeDataModel): string {
+  const tenantModels = tenantModelsFromDataModel(dm);
   const lines = tenantModels.map((name) => `  '${name}',`).join('\n');
+  const meta = modelMetaFromDataModel(dm);
+  const metaLines = Object.entries(meta)
+    .map(([name, m]) => {
+      const rels = Object.entries(m.relations)
+        .map(([f, r]) => `${f}: { model: '${r.model}', isList: ${r.isList} }`)
+        .join(', ');
+      return `  ${name}: { table: '${m.table}', relations: { ${rels} } },`;
+    })
+    .join('\n');
   return `// GENERATED FILE — DO NOT EDIT.
 // Produced by scripts/gen-tenant-models.ts from the Prisma runtime data model
-// (every model that has a \`workspaceId\` field). Regenerate with:
+// (every model that has a \`workspaceId\` field, plus relation metadata for the
+// scoped client's nested traversal). Regenerate with:
 //   pnpm --filter @nexus/db generate
 // src/tenant-models.test.ts fails if this file is stale.
 
 export const TENANT_MODELS: ReadonlySet<string> = new Set([
 ${lines}
 ]);
+
+export type RelationMeta = { model: string; isList: boolean };
+export type ModelMeta = { table: string; relations: Record<string, RelationMeta> };
+
+export const MODEL_META: Readonly<Record<string, ModelMeta>> = {
+${metaLines}
+};
 `;
 }

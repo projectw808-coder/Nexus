@@ -326,6 +326,7 @@ model Workspace {
   deletedAt DateTime?
 
   memberships                  Membership[]
+  invitations                  Invitation[]
   teams                        Team[]
   teamMembers                  TeamMember[]
   objectTypes                  ObjectType[]
@@ -389,6 +390,7 @@ model User {
   sessions Session[]
 
   memberships                  Membership[]              @relation("MembershipUser")
+  sentInvitations              Invitation[]              @relation("InvitationInvitedBy")
   invitedMemberships           Membership[]              @relation("MembershipInvitedBy")
   teamMemberships              TeamMember[]
   createdRecords               Record[]
@@ -436,6 +438,30 @@ model Membership {
   @@index([workspaceId, role])
   @@index([userId])
   @@index([invitedById])
+}
+
+/// A pending invitation to join a workspace (Phase 1). The raw token is emailed once; only
+/// its SHA-256 hash is stored. Accepting creates the Membership and stamps acceptedAt.
+model Invitation {
+  id               String    @id @default(uuid())
+  workspaceId      String
+  email            String    @db.Citext
+  role             Role      @default(MEMBER)
+  tokenHash        String    @unique
+  invitedById      String?
+  expiresAt        DateTime
+  acceptedAt       DateTime?
+  acceptedByUserId String?
+  revokedAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  deletedAt        DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  invitedBy User?     @relation("InvitationInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, createdAt(sort: Desc)])
 }
 
 model Team {

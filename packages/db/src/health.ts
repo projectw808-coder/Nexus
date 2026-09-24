@@ -24,8 +24,9 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export async function checkDatabase(): Promise<DatabaseHealth> {
   const startedAt = performance.now();
   try {
-    const { basePrisma } = await import('./client.ts');
-    await withTimeout(basePrisma.$queryRaw`SELECT 1`, HEALTH_TIMEOUT_MS);
+    const { getBasePrisma } = await import('./client.ts');
+    const prisma = await withTimeout(getBasePrisma(), HEALTH_TIMEOUT_MS);
+    await withTimeout(prisma.$queryRaw`SELECT 1`, HEALTH_TIMEOUT_MS);
     return { ok: true, latencyMs: Math.round(performance.now() - startedAt) };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : String(err) };

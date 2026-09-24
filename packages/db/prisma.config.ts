@@ -6,7 +6,11 @@ import { defineConfig } from 'prisma/config';
 // boot). `prisma generate` needs no database but Prisma 7 still requires a URL here, so fall back
 // to the docker-compose default rather than failing a CI step that only generates the client.
 loadDotenv({ path: resolve(import.meta.dirname, '../../.env'), quiet: true });
-const url = process.env['DATABASE_URL'] ?? 'postgresql://nexus:nexus@localhost:5432/nexus';
+// Migrations run as the table owner; the app role in DATABASE_URL is deliberately weaker.
+const url =
+  process.env['DATABASE_ADMIN_URL'] ??
+  process.env['DATABASE_URL'] ??
+  'postgresql://nexus:nexus@localhost:5432/nexus';
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',

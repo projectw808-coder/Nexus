@@ -113,3 +113,36 @@ lazily, so importing `@nexus/db` for enums/types does not need `DATABASE_URL`.
 `pnpm --filter @nexus/db seed` runs `prisma/seed.ts`. It is a stub until the
 Appendix B seed (system object types, protected attributes, demo workspace,
 mock connection) lands in Phase 2.
+
+## The tenant boundary (Phase 1)
+
+```ts
+import { withTenant, tenancy, writeAudit, type Actor } from '@nexus/db';
+
+await withTenant(actor, async (db, { actor }) => {
+  const rows = await db.conversation.findMany({ where: { status: 'OPEN' } }); // workspaceId injected
+  await writeAudit(db, actor, {
+    action: 'conversation.closed',
+    targetType: 'Conversation',
+    targetId: id,
+  });
+});
+```
+
+- `withTenant(actor, fn)` opens a transaction, sets `app.workspace_id` (RLS, ADR-006) and hands
+  `fn` a client whose every operation is rewritten by `src/scoped.ts` — see the file header for
+  the exact rules (unique vs filter wheres, creates never default `workspaceId`, nested
+  include/select/where/writes are walked with the generated `MODEL_META`).
+- `withSystem(fn)` sets `app.rls_bypass` for cross-tenant maintenance. Importable only here and
+  in `apps/worker/src/system` (lint rule `nexus/no-base-prisma`). Apps use the helpers in
+  `src/tenancy.ts` instead (`tenancy.listWorkspacesForUser`, `resolveActor`, `createWorkspace`,
+  `acceptInvitation`).
+- Row-level security SQL is generated: `pnpm --filter @nexus/db gen:rls -- --out
+prisma/migrations/<ts>_rls_policies/migration.sql` after adding tenant models;
+  `src/rls.test.ts` fails until every tenant table has its policy.
+
+## Running without Docker
+
+`DATABASE_URL=pglite://./.data/nexus` runs an in-process Postgres (PGlite with pgvector,
+pg_trgm, citext), applies migrations on open and enforces the same role/RLS setup (ADR-008).
+Single process only. Tests always use the ephemeral variant from `@nexus/db/testing`.
