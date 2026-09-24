@@ -1,0 +1,186 @@
+# Progress
+
+Running log of what is done, stubbed and deferred (spec §0.10). Updated at every phase boundary.
+Acceptance criteria are copied from §16 verbatim so nobody can quietly soften them.
+
+**Legend:** `[x]` done and verified · `[~]` built, not verified here (reason given) · `[ ]` not started
+
+---
+
+## Phase 0 — Foundation ✅ built, partially verified
+
+Monorepo, Docker Compose (Postgres+pgvector, Redis, MinIO, Mailpit), Prisma bootstrap,
+zod-validated env, CI skeleton, logging/tracing, error taxonomy, the design tokens package with
+light/dark.
+
+**Accept:**
+
+- [~] `pnpm dev` brings up web+worker+infra — compose + turbo wired; **not run on this machine (no
+  Docker installed)**. Typecheck, lint, unit tests and `next build` pass.
+- [~] `/healthz` green — implemented for web (`apps/web/app/healthz`) and worker (`:3001/healthz`);
+  reports 503 with per-check detail when a dependency is down. Verified by running both
+  processes without infra: each answers `degraded` with the Postgres/Redis error and a trace id,
+  and the worker stays up while Redis reconnects. Green state needs Docker.
+- [~] a trace from an HTTP request through a queued job is visible end to end — implemented:
+  `POST /api/system/ping` injects the trace carrier into the job, the worker joins it; proven by a
+  unit test with an in-memory exporter (`packages/telemetry/src/propagation.test.ts`). Jaeger UI
+  check needs Docker.
+- [x] dark mode toggles and persists — three-state toggle, localStorage + cookie, SSR emits
+      `data-theme` so there is no flash; explicit toggle beats the OS both ways (tokens.css).
+      Verified in a browser whose OS prefers dark: choosing Light switched the page plane to
+      `#f9f9f7`, and after a reload the server HTML already carried `data-theme="light"`.
+
+**Verification notes.** `pnpm check` (typecheck, 63 unit tests, lint with the three custom
+rules, Prettier) and `next build` pass. Docker is not installed on the build machine, so
+`pnpm infra:up`, `prisma migrate dev` and the drift gate were not run; the init migration was
+produced with `prisma migrate diff --from-empty` (no database needed) and validates. `next dev`
+writes `apps/web/AGENTS.md` and `CLAUDE.md` pointing agents at the bundled Next 16 docs; they
+are committed on purpose.
+
+**Done:** root workspace (pnpm 12 + Turborepo 2) · `packages/config` (Appendix A env, flags,
+queue names) · `packages/core` (`Result`, `NexusError`, §9.2 taxonomy) · `packages/telemetry`
+(pino with redaction, OTel SDK, queue propagation) · `packages/ui` (tokens.css, tokens.ts, theme)
+· `packages/db` (full Phase 0–2 schema, init migration, tenant-model generator, health check) ·
+`packages/connectors/sdk` (complete SPI, manifest, quota shapes, canonical entities) · `apps/web`
+(Next 16, instrumentation, healthz, ping, status page, theme toggle) · `apps/worker` (BullMQ
+worker, health server, graceful shutdown) · ESLint with `nexus/no-direct-platform-fetch`,
+`nexus/no-base-prisma`, `nexus/no-raw-query` · GitHub Actions CI · Dockerfiles · Terraform skeleton
+· ADR-001…005 · this file.
+
+**Stubbed:** `packages/automation`, `packages/ai`, `packages/testing` (layout only) · `prisma/seed.ts`
+(prints and exits) · Terraform (provider block only) · CI placeholders for e2e/axe/Lighthouse/k6.
+
+**Deferred to Phase 1:** `withTenant()` + scoped client + RLS policies (schema and the
+`nexus_current_workspace()` helper exist), Auth.js, CASL, AuditLog writes.
+
+---
+
+## Phase 1 — Tenancy, auth, authz
+
+Workspace/User/Membership, Auth.js (magic link + Google + Microsoft), invitations, roles, the scoped
+Prisma client, RLS policies, CASL abilities, `AuditLog`, the ESLint rules.
+
+- [ ] the cross-tenant isolation test suite passes for every route
+- [ ] a `viewer` cannot mutate anything
+- [ ] every mutation writes an audit row
+- [ ] RLS blocks a deliberately unscoped query at the DB level
+
+## Phase 2 — The object graph
+
+ObjectType/Attribute/Record/RecordRelation, JSONB + generated-column indexing with the migration
+generator, validation from attribute types, List/ListEntry with fractional indexing and per-list
+attributes, saved views, search (FTS + trigram), CSV import with column mapping and a dry-run
+preview, export.
+
+- [ ] create a custom object with 12 attribute types and 100k seeded records
+- [ ] filter+sort on an indexed attribute < 200 ms p95
+- [ ] a record sits in three pipelines with different stage values in each
+- [ ] import 10k rows with a preview and a rollback
+
+## Phase 3 — Records UI
+
+Table view (TanStack Table + Virtual: resize, reorder, pin, group, inline edit, aggregates), board
+view, record detail shell, ⌘K palette, global search, bulk actions, the four mandatory states on
+every screen.
+
+- [ ] 100k-row table scrolls at 60fps
+- [ ] every action keyboard-reachable
+- [ ] axe clean
+
+## Phase 4 — Connector SDK
+
+The SPI, OAuth helpers (code + PKCE + refresh), `TokenVault` with envelope encryption, the
+four-shape rate limiter with reserve/settle and priority lanes, circuit breaker, cursor store,
+`ExternalObject` raw store, the seven-stage pipeline, `SyncRun`, webhook receiver + verification
+framework, DLQ + replay CLI, the contract test suite, `new-connector` generator, and a mock
+platform (configurable latency, 429s, 5xx, schema drift and dropped webhooks) used by all tests.
+
+- [ ] a mock connector backfills 50k objects
+- [ ] resumes after a worker kill
+- [ ] survives 30% injected 429/5xx without data loss
+- [ ] replaying every webhook 3× produces zero duplicates
+
+## Phase 5 — Meta (Facebook + Instagram)
+
+Full connector: auth + Page/IG account discovery, DMs, comments, mentions, reviews, lead forms,
+insights, all six webhook topics, usage-header-driven budgeting, the 24-hour messaging window in
+`preflight`, the version-drift monitor.
+
+- [ ] connect a real test Page and IG account
+- [ ] a DM sent from a phone lands as a `Conversation` + `Message` row and renders on a bare
+      conversation list in < 10 s
+- [ ] a reply sent from that scaffold lands on the platform
+- [ ] the window countdown blocks a send at 24h+1m with a clear reason
+- [ ] pausing the Facebook connection leaves Instagram syncing
+
+## Phase 6 — Identity resolution & the unified timeline
+
+Tiered matching, evidence capture, the "why" panel, suggestion queue, `RecordMerge` with reversible
+merge/unmerge, `NeverMerge`, nightly re-scoring, `TimelineEvent` assembly with provenance and
+per-platform filters, and the identity-then-record backfill described in §6.6(3).
+
+- [ ] seed a person with five channel identities and confirm one Person with five chips
+- [ ] a correct chronological timeline
+- [ ] an explainable merge
+- [ ] a state identical to the pre-merge snapshot after merge→unmerge
+- [ ] an unresolved identity's events are visible on the identity and move to the Person on
+      resolution without duplication
+
+## Phase 7 — Unified Inbox
+
+Three-pane inbox, per-platform tabs, assignment, statuses, snooze, SLA timers, internal notes,
+canned replies, platform-aware composer, the context sidebar (backed by Phase 6), SSE realtime,
+keyboard model, bulk triage.
+
+- [ ] the e2e path in §15 passes
+- [ ] two users see each other's assignment changes live
+- [ ] inbox p95 load < 500 ms with 50k conversations
+
+## Phase 8 — Remaining platforms
+
+X, LinkedIn, TikTok, YouTube and Keitaro — each with its approval/setup checklist, its quota or
+spend model, its constraints encoded in `preflight`, its capability sheet in `docs/connectors/`,
+and its fixtures.
+
+- [ ] each connector passes the shared contract suite
+- [ ] the YouTube connector refuses `search.list` from a sync path and reports both remaining
+      units and remaining capped-endpoint calls
+- [ ] the X connector projects spend correctly with the 24h dedup ledger applied and hard-stops at
+      its configured cap
+- [ ] the Keitaro connector ingests a `lead → sale → rejected` transition on one `subid`+`tid` and
+      correctly adds then reverses the deal revenue
+- [ ] per-connection permission grants demonstrably restrict a `member` to read-only on LinkedIn
+      while allowing engage on Instagram
+
+## Phase 9 — Integrations hub & health console
+
+Connection grid, detail tabs, field mapping UI with live preview, webhook delivery log + replay,
+the workspace health console, the quota simulator, reconnect flows, disconnect-and-purge.
+
+- [ ] a token expiring in 3 days shows a countdown, emails the owner, and pauses only its own
+      connection
+- [ ] a deliberately broken webhook signature shows up as rejected with a remediation string
+- [ ] the simulator's estimate for a seeded volume is within 20% of observed consumption over a
+      24h run
+
+## Phase 10 — Automation + AI
+
+The workflow engine with dry-run, loop detection and run history; summaries, relationship briefs,
+AI research attributes, reply drafting, transparent lead scoring, hybrid semantic search; budgets
+and kill switches.
+
+- [ ] a workflow that routes Instagram comments containing "price" to a pipeline and assigns by
+      round-robin passes a 7-day dry run and then runs live
+- [ ] an AI summary cites real timeline events
+- [ ] the kill switch stops all model calls within one request
+
+## Phase 11 — Reports, public API, compliance, polish
+
+Dashboard builder and the widget catalogue under §12.4; REST v1 + OpenAPI + API keys + outbound
+webhooks; DSAR export/erasure; retention purge; consent gates; onboarding checklist; empty-state
+seeding; docs.
+
+- [ ] every §2 performance budget met
+- [ ] every chart passes the §12.4 rules
+- [ ] a DSAR erasure removes every trace of a person across all channels and leaves a tombstone
+- [ ] the OpenAPI spec generates a working client
