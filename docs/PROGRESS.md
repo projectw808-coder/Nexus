@@ -55,15 +55,48 @@ worker, health server, graceful shutdown) · ESLint with `nexus/no-direct-platfo
 
 ---
 
-## Phase 1 — Tenancy, auth, authz
+## Phase 1 — Tenancy, auth, authz ✅ built
 
 Workspace/User/Membership, Auth.js (magic link + Google + Microsoft), invitations, roles, the scoped
 Prisma client, RLS policies, CASL abilities, `AuditLog`, the ESLint rules.
 
-- [ ] the cross-tenant isolation test suite passes for every route
-- [ ] a `viewer` cannot mutate anything
-- [ ] every mutation writes an audit row
-- [ ] RLS blocks a deliberately unscoped query at the DB level
+- [x] the cross-tenant isolation test suite passes for every route — generated from the router
+      manifest (`apps/web/server/isolation.test.ts`): a non-member gets NOT_FOUND on every tenant
+      procedure, a member of B using A's ids gets NOT_FOUND with A untouched, anonymous gets
+      UNAUTHORIZED, and a procedure without a fixture fails the suite.
+- [x] a `viewer` cannot mutate anything — every tenant mutation returns FORBIDDEN for a VIEWER.
+- [x] every mutation writes an audit row — enforced by `tenantProcedure` (a mutation that ends
+      with no audit row is rejected and rolled back, ADR-007) and asserted per mutation.
+- [x] RLS blocks a deliberately unscoped query at the DB level — `packages/db/src/scoped.test.ts`
+      runs as the `nexus_app` role on PGlite: an unscoped `SELECT` returns no rows while the
+      superuser sees them, and an insert for another workspace fails with `42501`.
+
+**Done:** `withTenant` / `withSystem` (`packages/db/src/scoped.ts`: transaction + `SET LOCAL`,
+scoped client extension covering unique and filter wheres, creates, nested include/select,
+relation filters and nested writes, generated `TENANT_MODELS` + `MODEL_META`) · RLS migration
+generated from the tenant models with a coverage test (ADR-006) · `Invitation` model · tenancy
+helpers (workspaces per user, actor + grants, create workspace, accept invitation) · CASL
+abilities from role + per-connection grants · tRPC routers `workspace`, `member`, `invitation`,
+`audit`, `me` with the taxonomy error mapping · `MailProvider` (SMTP/Mailpit, memory) · Auth.js
+v5 (magic link via MailProvider, Google, Microsoft Entra ID, Prisma adapter with `avatarUrl`
+mapping) · screens: sign-in, workspace list/new, workspace shell with rail, settings → general /
+members / audit log, invitation landing, all with empty/loading/error/permission-denied states ·
+PGlite test harness and `pglite://` dev backend (ADR-008) · CI creates the app role.
+
+**Verification notes.** Unit/integration: 27 db tests + 19 web tests on PGlite, `pnpm check`
+green, `next build` green. End to end on the running app (`DATABASE_URL=pglite://`, no Docker):
+magic-link sign-in → empty workspace list → create workspace → shell with rail and switcher →
+members page (self controls disabled with reasons) → invitation created and mailed → signed-out
+invitation preview → invitee signs in and lands back on the invite → accepts → owner changes the
+role → audit log lists `workspace.created`, `member.joined`, `invitation.created`,
+`invitation.accepted`, `member.role_changed` with actors, and the audit page renders them. The
+walkthrough drove Auth.js and the tRPC endpoint over HTTP and rendered every page server-side;
+the in-app browser pane would not paint on this machine, so the client-side islands (rail
+collapse, confirm step, slug suggestion) are verified by typecheck and build only.
+
+**Deferred:** React Email templates (plain HTML for now) · SAML interface · MFA · API keys
+(Phase 11) · field-level permissions (Phase 2, needs attributes) · `Team`/`TeamMember` UI ·
+`x-pathname` header so sign-in returns to the original page (a `proxy.ts` in Phase 3).
 
 ## Phase 2 — The object graph
 
