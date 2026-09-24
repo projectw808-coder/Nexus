@@ -39,6 +39,8 @@ type Ids = {
   viewId: string;
   importJobId: string;
   spareRecordId: string;
+  noteId: string;
+  taskId: string;
   personId: string;
   companyId: string;
   dealId: string;
@@ -313,6 +315,71 @@ const FIXTURES: Record<string, Fixture> = {
     crossInput: (ids) => ({ id: ids.importJobId }),
     crossExpect: 'NOT_FOUND',
   },
+  'record.bulkUpdate': {
+    tier: 'tenant',
+    input: (ids) => ({ ids: [ids.recordId], values: { name: 'Bulk' } }),
+    crossInput: (ids) => ({ ids: [ids.recordId], values: { name: 'Pwned' } }),
+    crossExpect: 'ok',
+  },
+  'record.history': { tier: 'tenant', input: (ids) => ({ id: ids.recordId }) },
+  'listEntry.addMany': {
+    tier: 'tenant',
+    input: (ids) => ({ listId: ids.listId, recordIds: [ids.spareRecordId] }),
+    crossInput: (ids) => ({ listId: ids.listId, recordIds: [ids.spareRecordId] }),
+  },
+  'note.list': { tier: 'tenant', input: (ids) => ({ recordId: ids.recordId }) },
+  'note.create': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.recordId, body: 'hello' }),
+    crossInput: (ids) => ({ recordId: ids.recordId, body: 'pwned' }),
+  },
+  'note.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.noteId, pinned: true }),
+    crossInput: (ids) => ({ id: ids.noteId, body: 'pwned' }),
+  },
+  'note.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.noteId }),
+    crossInput: (ids) => ({ id: ids.noteId }),
+  },
+  'task.list': { tier: 'tenant', input: (ids) => ({ recordId: ids.recordId }) },
+  'task.create': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.recordId, title: 'Call' }),
+    crossInput: (ids) => ({ recordId: ids.recordId, title: 'pwned' }),
+  },
+  'task.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.taskId, status: 'DONE' }),
+    crossInput: (ids) => ({ id: ids.taskId, title: 'pwned' }),
+  },
+  'task.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.taskId }),
+    crossInput: (ids) => ({ id: ids.taskId }),
+  },
+  'person.bulkUpdate': {
+    tier: 'tenant',
+    input: (ids) => ({ ids: [ids.personId], values: { name: 'Bulk' } }),
+    crossInput: (ids) => ({ ids: [ids.personId], values: { name: 'Pwned' } }),
+    crossExpect: 'ok',
+  },
+  'person.history': { tier: 'tenant', input: (ids) => ({ id: ids.personId }) },
+  'company.bulkUpdate': {
+    tier: 'tenant',
+    input: (ids) => ({ ids: [ids.companyId], values: { name: 'Bulk' } }),
+    crossInput: (ids) => ({ ids: [ids.companyId], values: { name: 'Pwned' } }),
+    crossExpect: 'ok',
+  },
+  'company.history': { tier: 'tenant', input: (ids) => ({ id: ids.companyId }) },
+  'deal.bulkUpdate': {
+    tier: 'tenant',
+    input: (ids) => ({ ids: [ids.dealId], values: { name: 'Bulk' } }),
+    crossInput: (ids) => ({ ids: [ids.dealId], values: { name: 'Pwned' } }),
+    crossExpect: 'ok',
+  },
+  'deal.history': { tier: 'tenant', input: (ids) => ({ id: ids.dealId }) },
   'export.records': {
     tier: 'tenant',
     input: () => ({ objectType: 'widget', format: 'csv' }),
@@ -377,11 +444,15 @@ async function freshIds(): Promise<Ids> {
     objectType: 'widget',
     values: { name: `spare ${Date.now()}` },
   });
+  const note = await owner.note.create({ recordId: rec.id, body: 'first note' });
+  const task = await owner.task.create({ recordId: rec.id, title: 'follow up' });
   const person = await owner.person.create({ values: { name: 'Pat' } });
   const company = await owner.company.create({ values: { name: 'Acme Co' } });
   const deal = await owner.deal.create({ values: { name: 'Deal' } });
   return {
     spareRecordId: spare.id,
+    noteId: note.id,
+    taskId: task.id,
     personId: person.id,
     companyId: company.id,
     dealId: deal.id,
@@ -468,6 +539,12 @@ describe('cross-tenant isolation', () => {
     );
     expect(JSON.stringify(rec.values)).not.toContain('Pwned');
     expect(rec.deletedAt).toBeNull();
+    for (const id of [ids.personId, ids.companyId, ids.dealId]) {
+      const r = await seed.db.runtime.withSystem((s) =>
+        s.record.findUniqueOrThrow({ where: { id } }),
+      );
+      expect(JSON.stringify(r.values)).not.toContain('Pwned');
+    }
     const attr = await seed.db.runtime.withSystem((s) =>
       s.attribute.findUniqueOrThrow({ where: { id: ids.attributeId } }),
     );

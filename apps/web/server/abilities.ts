@@ -38,6 +38,8 @@ export type SubjectName =
   | 'SavedView'
   | 'ImportJob'
   | 'Conversation'
+  | 'Note'
+  | 'Task'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -73,7 +75,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       can('read', 'all');
       can(
         ['create', 'update', 'delete', 'export', 'import'],
-        ['Record', 'List', 'ListEntry', 'Conversation', 'ImportJob'],
+        ['Record', 'List', 'ListEntry', 'Conversation', 'ImportJob', 'Note', 'Task'],
       );
       can(['create', 'update', 'delete'], 'SavedView');
       cannot('read', ['ApiKey', 'ConnectionGrant']);
@@ -90,8 +92,11 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'SavedView',
         'Conversation',
         'Connection',
+        'Note',
+        'Task',
       ]);
-      can(['create', 'update'], ['Record', 'Conversation', 'ListEntry']);
+      can(['create', 'update'], ['Record', 'Conversation', 'ListEntry', 'Note', 'Task']);
+      can('delete', 'Task');
       can('export', 'Record');
       can(['create', 'update', 'delete'], 'SavedView');
       break;
@@ -107,6 +112,8 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'SavedView',
         'Conversation',
         'Connection',
+        'Note',
+        'Task',
       ]);
       break;
   }

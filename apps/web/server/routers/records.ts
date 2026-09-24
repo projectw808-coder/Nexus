@@ -197,6 +197,71 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
         return { count };
       }),
 
+    /** Bulk action: apply the same values to many records; one audit row per record. */
+    bulkUpdate: tenantProcedure
+      .use(authorize('update', 'Record'))
+      .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(500), values }))
+      .mutation(async ({ ctx, input }) => {
+        let updated = 0;
+        for (const id of input.ids) {
+          const existing = await ctx.db.record.findFirst({
+            where: { id, deletedAt: null, ...(fixed ? { objectType: { apiSlug: fixed } } : {}) },
+            select: { objectTypeId: true },
+          });
+          if (!existing) continue;
+          const attrs = await attributesFor(ctx.db, existing.objectTypeId);
+          const { before, after } = await updateRecord(ctx.db, ctx.actor, {
+            recordId: id,
+            attributes: attrs,
+            input: input.values,
+          });
+          await ctx.audit({
+            action: 'record.updated',
+            targetType: 'Record',
+            targetId: id,
+            diff: diffOf(before.values, after.values),
+          });
+          updated += 1;
+        }
+        if (updated === 0) {
+          await ctx.audit({
+            action: 'record.bulk_update_noop',
+            targetType: 'Record',
+            targetId: input.ids[0]!,
+            diff: { ids: input.ids },
+          });
+        }
+        return { updated };
+      }),
+
+    /** Field history from the audit trail (§12.2.B history popover). */
+    history: tenantProcedure
+      .use(authorize('read', 'Record'))
+      .input(
+        z.object({ id: z.string().uuid(), limit: z.number().int().min(1).max(200).default(50) }),
+      )
+      .query(async ({ ctx, input }) => {
+        const rows = await ctx.db.auditLog.findMany({
+          where: {
+            targetType: 'Record',
+            targetId: input.id,
+            action: {
+              in: ['record.created', 'record.updated', 'record.deleted', 'record.restored'],
+            },
+          },
+          include: { actorUser: { select: { name: true, email: true } } },
+          orderBy: { at: 'desc' },
+          take: input.limit,
+        });
+        return rows.map((a) => ({
+          id: a.id,
+          at: a.at,
+          action: a.action,
+          actor: a.actorUser?.name ?? a.actorUser?.email ?? a.actorType.toLowerCase(),
+          diff: a.diff as Record<string, unknown>,
+        }));
+      }),
+
     restore: tenantProcedure
       .use(authorize('delete', 'Record'))
       .input(z.object({ ids: z.array(z.string().uuid()).min(1).max(500) }))

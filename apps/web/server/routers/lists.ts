@@ -66,17 +66,31 @@ export const listRouter = router({
           plural: list.objectType.plural,
         },
         stages: stagesOf(defs),
+        settings: {
+          wipLimits: ((list.settings as Record<string, unknown>)['wipLimits'] ?? {}) as Record<
+            string,
+            number
+          >,
+          rotDays: Number((list.settings as Record<string, unknown>)['rotDays'] ?? 14),
+        },
         attributes: defs,
         entries: entries
           .filter((e) => !e.record.deletedAt)
-          .map((e) => ({
-            id: e.id,
-            recordId: e.recordId,
-            label: recordLabel(attrs, e.record.values as Record<string, unknown>),
-            stage: e.stage,
-            position: e.position,
-            values: e.values as Record<string, unknown>,
-          })),
+          .map((e) => {
+            const values = e.values as Record<string, unknown>;
+            return {
+              id: e.id,
+              recordId: e.recordId,
+              label: recordLabel(attrs, e.record.values as Record<string, unknown>),
+              stage: e.stage,
+              position: e.position,
+              values,
+              enteredStageAt:
+                typeof values['enteredStageAt'] === 'string'
+                  ? values['enteredStageAt']
+                  : e.createdAt.toISOString(),
+            };
+          }),
       };
     }),
 
@@ -117,6 +131,10 @@ export const listRouter = router({
         name: z.string().trim().min(1).max(80).optional(),
         description: z.string().max(500).nullable().optional(),
         stages: z.array(optionSchema).min(1).max(50).optional(),
+        /** Per-stage WIP limits (§12.2.D); 0 or absent means unlimited. */
+        wipLimits: z.record(z.string(), z.number().int().min(0).max(10_000)).optional(),
+        /** Days in a stage after which an entry is highlighted as rotting. */
+        rotDays: z.number().int().min(1).max(365).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -150,21 +168,24 @@ export const listRouter = router({
         data: {
           ...(input.name !== undefined ? { name: input.name } : {}),
           ...(input.description !== undefined ? { description: input.description } : {}),
-          ...(input.stages
-            ? {
-                settings: {
-                  ...(list.settings as Record<string, unknown>),
-                  stages: input.stages.map((s) => s.id),
-                } as Prisma.InputJsonValue,
-              }
-            : {}),
+          settings: {
+            ...(list.settings as Record<string, unknown>),
+            ...(input.stages ? { stages: input.stages.map((s) => s.id) } : {}),
+            ...(input.wipLimits ? { wipLimits: input.wipLimits } : {}),
+            ...(input.rotDays ? { rotDays: input.rotDays } : {}),
+          } as Prisma.InputJsonValue,
         },
       });
       await ctx.audit({
         action: 'list.updated',
         targetType: 'List',
         targetId: list.id,
-        diff: { name: input.name, stages: input.stages?.map((s) => s.id) },
+        diff: {
+          name: input.name,
+          stages: input.stages?.map((s) => s.id),
+          wipLimits: input.wipLimits,
+          rotDays: input.rotDays,
+        },
       });
       return { id: list.id };
     }),
@@ -206,6 +227,37 @@ export const listEntryRouter = router({
         diff: { listId: input.listId, recordId: input.recordId, stage: e.stage },
       });
       return e;
+    }),
+
+  /** Bulk action: add many records to a list; records already present are skipped. */
+  addMany: tenantProcedure
+    .use(authorize('create', 'ListEntry'))
+    .input(
+      z.object({
+        listId: z.string().uuid(),
+        recordIds: z.array(z.string().uuid()).min(1).max(500),
+        stage: z.string().max(64).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      let added = 0;
+      let skipped = 0;
+      for (const recordId of input.recordIds) {
+        try {
+          await addEntry(ctx.db, ctx.actor, { listId: input.listId, recordId, stage: input.stage });
+          added += 1;
+        } catch (e) {
+          if (NexusError.is(e) && e.code === 'CONFLICT') skipped += 1;
+          else throw e;
+        }
+      }
+      await ctx.audit({
+        action: 'list_entry.added_many',
+        targetType: 'List',
+        targetId: input.listId,
+        diff: { added, skipped, stage: input.stage ?? null },
+      });
+      return { added, skipped };
     }),
 
   move: tenantProcedure

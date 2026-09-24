@@ -5,9 +5,11 @@ import { importRouter } from './imports';
 import { invitationRouter } from './invitation';
 import { listEntryRouter, listRouter } from './lists';
 import { memberRouter } from './member';
+import { noteRouter } from './notes';
 import { attributeRouter, objectTypeRouter } from './objects';
 import { companyRouter, dealRouter, personRouter, recordRouter } from './records';
 import { searchRouter } from './search';
+import { taskRouter } from './tasks';
 import { viewRouter } from './views';
 import { workspaceRouter } from './workspace';
 
@@ -32,6 +34,8 @@ export const appRouter = router({
   search: searchRouter,
   import: importRouter,
   export: exportRouter,
+  note: noteRouter,
+  task: taskRouter,
 });
 
 export type AppRouter = typeof appRouter;
