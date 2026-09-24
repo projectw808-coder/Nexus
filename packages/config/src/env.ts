@@ -63,6 +63,8 @@ export const envSchema = z.object({
   AUTH_MICROSOFT_ENTRA_ID_SECRET: optional,
   AUTH_MICROSOFT_ENTRA_ID_ISSUER: optional,
   AUTH_TRUST_HOST: bool('true'),
+  /** Test-only sign-in endpoint (never honoured in production builds). */
+  E2E_AUTH_BYPASS: bool(),
 
   // ── Meta ─────────────────────────────────────────────────────────────────
   META_APP_ID: optional,

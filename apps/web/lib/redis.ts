@@ -12,8 +12,13 @@ export function getRedis(): IORedis {
       maxRetriesPerRequest: null,
       lazyConnect: true,
       enableReadyCheck: true,
+      // Health checks call ping(); without Redis the client would otherwise retry (and log) forever.
+      retryStrategy: (times) => (times > 3 ? null : Math.min(times * 200, 1000)),
     });
+    let lastError = '';
     g.__nexusRedis.on('error', (e: Error) => {
+      if (e.message === lastError) return;
+      lastError = e.message;
       console.error('[redis]', e.message);
     });
   }

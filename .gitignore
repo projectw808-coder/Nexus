@@ -17,3 +17,7 @@ apps/web/next-env.d.ts
 .claude/
 .data/
 *.tsbuildinfo
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/

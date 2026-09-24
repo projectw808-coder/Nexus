@@ -86,8 +86,18 @@ jobs:
       - name: Build web
         run: pnpm --filter @nexus/web build
 
-      # Phase 3+: - name: Playwright e2e (critical path)     run: pnpm --filter @nexus/web e2e
-      # Phase 3+: - name: axe on every route                 run: pnpm --filter @nexus/web a11y
+      - name: Install Playwright Chromium
+        run: pnpm --filter @nexus/web exec playwright install --with-deps chromium
+      - name: Playwright e2e (records grid at 100k rows, keyboard-only flows, axe on every route)
+        # Runs the production build against its own PGlite database (ADR-012); no services needed.
+        run: pnpm --filter @nexus/web e2e
+      - name: Upload Playwright traces
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: apps/web/test-results
+          retention-days: 7
       # Phase 3+: - name: Lighthouse CI budgets              run: pnpm dlx @lhci/cli autorun
       # Phase 4+: - name: k6 smoke (10k webhooks/min)         run: k6 run infra/k6/webhooks.js
       # Phase 4+: coverage floor 80% in packages/core and packages/connectors/* (vitest --coverage)

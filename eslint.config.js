@@ -64,7 +64,7 @@ export default tseslint.config(
   },
   {
     // CLI scripts and seeds talk to a terminal.
-    files: ['**/scripts/**', 'packages/db/prisma/seed.ts'],
+    files: ['**/scripts/**', 'packages/db/prisma/seed.ts', 'apps/web/e2e/**'],
     rules: { 'no-console': 'off' },
   },
   {
