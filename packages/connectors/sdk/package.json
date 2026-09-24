@@ -1,0 +1,23 @@
+{
+  "name": "@nexus/connector-sdk",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Connector SPI, canonical entity schemas, manifest and quota shapes for Nexus platform connectors (spec §7).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nexus/core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
