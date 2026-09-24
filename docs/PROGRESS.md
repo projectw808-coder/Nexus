@@ -152,15 +152,60 @@ page were finished by hand afterwards.
 and are read-only) · the 1M-row benchmark against real Postgres (`k6`/Phase 11; 100k on PGlite
 here) · TanStack table/board interactions (Phase 3) · OpenSearch behind the search interface.
 
-## Phase 3 — Records UI
+## Phase 3 — Records UI ✅ built
 
 Table view (TanStack Table + Virtual: resize, reorder, pin, group, inline edit, aggregates), board
 view, record detail shell, ⌘K palette, global search, bulk actions, the four mandatory states on
 every screen.
 
-- [ ] 100k-row table scrolls at 60fps
-- [ ] every action keyboard-reachable
-- [ ] axe clean
+- [x] 100k-row table scrolls at 60fps — `apps/web/e2e/records-table.spec.ts` signs in as the
+      owner of the seeded `e2e` workspace (100,000 `widget` rows inserted in SQL by
+      `packages/db/src/testing/seed-e2e.ts`), scrolls the grid for three seconds while sampling
+      `requestAnimationFrame` deltas, and asserts fewer than 10% long frames and a p95 frame under
+      40 ms. Measured on the build machine (headless Chromium, production build on PGlite):
+      180 frames, 0 long frames, p95 16.8 ms. Only the viewport plus overscan is in the DOM
+      (< 80 rows) and the next cursor page is requested as the viewport nears the loaded end.
+- [x] every action keyboard-reachable — `apps/web/e2e/keyboard.spec.ts` and the second test in
+      `records-table.spec.ts` run with no pointer: ⌘K → type → Enter opens the widgets table;
+      arrow keys move a roving `gridcell` focus; Enter opens the record on the label column, opens
+      the column menu on the header row and edits any other cell (F2 and Space also edit,
+      Shift+Space selects, Ctrl+A selects loaded rows, Escape clears); the column menu
+      (sort / move / pin / group / reset / hide) is a `menu` with arrow navigation; grouping and
+      ungrouping by Tier, selecting two rows and dismissing the bulk bar all happen from the
+      keyboard; on the record page a value is edited inline and a note (Ctrl+Enter) and a task
+      (Enter) are created; on the board a card is moved between stages via its Move menu.
+- [x] axe clean — `apps/web/e2e/a11y.spec.ts` runs `@axe-core/playwright` with the WCAG 2.0/2.1/2.2
+      A + AA tags on 19 static routes (sign-in, check-email, error, home, new workspace, workspace
+      home, records index, widgets table with and without a search, new record, import wizard,
+      lists, search, settings general/members/objects/object detail/audit, status) plus a record
+      page and the pipeline board, failing on any serious or critical violation. All pass after
+      three fixes the gate found: muted ink and link colours raised to ≥ 4.5:1 on every surface
+      in both themes (`packages/ui/src/tokens.css`), links inside text now carry an underline
+      (`link-in-text-block`), and the record attribute list is a valid `dl`.
+
+What was built:
+
+- `apps/web/lib/trpc-client.tsx` — typed tRPC client over TanStack Query for client components
+  (ADR-011). `apps/web/components/data-grid/*` — the grid (cursor-paged `useInfiniteQuery`,
+  virtualized rows, column order / width / pinning / visibility / grouping persisted per object
+  in `localStorage`, footer aggregates over loaded rows, roving keyboard model, inline cell
+  editors per attribute type with optimistic update and rollback) and the bulk bar (delete, add
+  to list, set a field on the selection, export selection as CSV).
+- `apps/web/components/board/board-view.tsx` — dnd-kit board with optimistic moves persisted
+  through `listEntry.move`, WIP limits and rot highlighting from the list settings, and a
+  per-card Move menu so every drag has a keyboard equivalent.
+- `apps/web/components/command-palette.tsx` — ⌘K dialog (combobox + listbox) with navigation,
+  create and settings commands plus debounced cross-object search results.
+- `apps/web/components/record/*` — inline-editable attribute panel with per-field history from
+  the audit trail, notes panel, tasks panel; new `note` and `task` routers and `record.bulkUpdate`
+  / `record.history` / `listEntry.addMany` procedures, all covered by the generated isolation
+  suite.
+- Playwright + axe in CI (`.github/workflows/ci.yml`) against the production build with the
+  flag-gated e2e sign-in endpoint (ADR-012); traces uploaded on failure.
+
+**Deferred:** the record Timeline tab shows a placeholder until connectors exist (Phase 4/5) ·
+cross-device sync of grid layout (ADR-011 names the path) · group aggregates over the whole
+table rather than loaded rows (needs a server-side group query; the UI labels the scope).
 
 ## Phase 4 — Connector SDK
 
