@@ -16,8 +16,8 @@ describe('system queue', () => {
   it('ping returns pong with queue latency', async () => {
     const sentAt = new Date(Date.now() - 50).toISOString();
     const out = await handleSystemJob(jobOf('ping', { sentAt }), fakeLog);
-    expect(out.pong).toBe(true);
-    expect(out.queueLatencyMs).toBeGreaterThanOrEqual(50);
+    expect('pong' in out && out.pong).toBe(true);
+    expect('queueLatencyMs' in out ? out.queueLatencyMs : 0).toBeGreaterThanOrEqual(50);
   });
 
   it('rejects unknown job names', async () => {

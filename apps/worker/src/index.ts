@@ -9,7 +9,8 @@ import {
   withLogContext,
   type TraceCarrier,
 } from '@nexus/telemetry';
-import { Worker, type Job } from 'bullmq';
+import { pendingIndexBuilds, runtime } from '@nexus/db';
+import { Queue, Worker, type Job } from 'bullmq';
 import { startHealthServer } from './health.ts';
 import { handleSystemJob, type SystemJobData } from './processors/system.ts';
 import { createRedis } from './redis.ts';
@@ -53,6 +54,28 @@ systemWorker.on('error', (error) => {
   log.error({ err: error }, 'worker error');
 });
 
+// Housekeeping schedule: purge attributes past their 24h retention every hour, and resume any
+// index build a previous worker left BUILDING (or a seed requested).
+const systemQueue = new Queue(QUEUES.system, { connection, prefix: QUEUE_PREFIX });
+void (async () => {
+  try {
+    await systemQueue.upsertJobScheduler(
+      'attribute.purge',
+      { every: 60 * 60 * 1000 },
+      { name: 'attribute.purge', data: {} },
+    );
+    for (const attributeId of await pendingIndexBuilds(runtime)) {
+      await systemQueue.add(
+        'index.build',
+        { attributeId },
+        { jobId: `index.build:${attributeId}` },
+      );
+    }
+  } catch (e) {
+    log.warn({ err: e }, 'could not schedule housekeeping jobs');
+  }
+})();
+
 const health = startHealthServer({
   port: env.WORKER_HEALTH_PORT,
   redis: connection,
@@ -70,7 +93,7 @@ async function shutdown(signal: string): Promise<void> {
     process.exit(1);
   }, 15_000);
   deadline.unref();
-  await Promise.allSettled([systemWorker.close(), health.close()]);
+  await Promise.allSettled([systemWorker.close(), systemQueue.close(), health.close()]);
   await connection.quit().catch(() => undefined);
   process.exit(0);
 }
