@@ -1,6 +1,9 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ActionButton } from '@/components/action-button';
+import { AttributePanel } from '@/components/record/attribute-panel';
+import { NotesPanel } from '@/components/record/notes-panel';
+import { TasksPanel } from '@/components/record/tasks-panel';
 import { LinkButton } from '@/components/button';
 import { ConfirmAction } from '@/components/confirm-action';
 import { EmptyState } from '@/components/empty-state';
@@ -8,9 +11,7 @@ import { LocalDateTime } from '@/components/local-time';
 import { PageHeader } from '@/components/page-header';
 import { PermissionDenied, PermissionNote } from '@/components/permission-denied';
 import { StatusPill } from '@/components/status-pill';
-import { ValueCell } from '@/components/value-cell';
 import { api } from '@/lib/api';
-import { TYPE_LABEL } from '@/lib/attributes';
 import { isCode } from '@/lib/errors';
 import { isoOf } from '@/lib/format';
 import { canDeleteRecords, canWriteRecords } from '@/lib/roles';
@@ -147,28 +148,13 @@ export default async function RecordDetailPage({
             description="Every attribute of this object is hidden from your role."
           />
         ) : (
-          <dl className="rounded-[var(--radius-card)] border border-hairline bg-card px-4">
-            {attrs.map((a) => (
-              <div
-                key={a.id}
-                className="grid grid-cols-[12rem_1fr] items-start gap-4 border-b border-hairline py-2.5 last:border-b-0"
-              >
-                <dt className="text-[var(--text-sm)] text-ink-muted">
-                  {a.title}
-                  <span className="ml-2 text-[var(--text-xs)]">{TYPE_LABEL[a.type]}</span>
-                </dt>
-                <dd className="min-w-0 text-[var(--text-base)]">
-                  <ValueCell
-                    attribute={a}
-                    value={rec.values[a.id]}
-                    slug={workspace.slug}
-                    objectSlugById={objectSlugById}
-                    full
-                  />
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <AttributePanel
+            slug={workspace.slug}
+            recordId={rec.id}
+            attributes={attrs}
+            initialValues={rec.values}
+            canEdit={writes}
+          />
         )}
       </section>
 
@@ -249,6 +235,22 @@ export default async function RecordDetailPage({
             ))}
           </ul>
         )}
+      </section>
+
+      <div className="grid gap-8 lg:grid-cols-2">
+        <NotesPanel recordId={rec.id} canWrite={writes} />
+        <TasksPanel recordId={rec.id} canWrite={writes} />
+      </div>
+
+      <section aria-labelledby="timeline-heading" className="flex flex-col gap-3">
+        <h2 id="timeline-heading" className="text-[var(--text-md)] font-semibold tracking-tight">
+          Timeline
+        </h2>
+        <EmptyState
+          compact
+          title="No channel activity yet"
+          description="Messages, comments, mentions and attribution land here once platforms are connected (Phase 6)."
+        />
       </section>
     </div>
   );

@@ -1,26 +1,20 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ActionButton } from '@/components/action-button';
+import { BoardView } from '@/components/board/board-view';
 import { ConfirmAction } from '@/components/confirm-action';
 import { DataTable, Td, Th } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { PageHeader } from '@/components/page-header';
 import { PermissionDenied, PermissionNote } from '@/components/permission-denied';
-import { OptionChip } from '@/components/value-cell';
 import { api } from '@/lib/api';
 import { isCode } from '@/lib/errors';
 import { canManageLists, canWriteRecords } from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
 import { searchRecordsAction } from '../../records/actions';
 import { deleteListAction } from '../actions';
-import {
-  addEntryAction,
-  entryHistoryAction,
-  moveStageAction,
-  nudgeEntryAction,
-  removeEntryAction,
-} from './actions';
-import { AddEntryForm, EntryHistory, StageSelect } from './entry-controls';
+import { addEntryAction, entryHistoryAction, nudgeEntryAction, removeEntryAction } from './actions';
+import { AddEntryForm, EntryHistory } from './entry-controls';
 
 export default async function ListDetailPage({
   params,
@@ -146,95 +140,12 @@ export default async function ListDetailPage({
           }
         />
       ) : isPipeline ? (
-        <div className="flex gap-3 overflow-x-auto pb-2" role="list" aria-label="Stages">
-          {list.stages.map((stage, si) => {
-            const column = list.entries
-              .filter((e) => e.stage === stage.id)
-              .sort((a, b) => a.position - b.position);
-            return (
-              <section
-                key={stage.id}
-                role="listitem"
-                aria-labelledby={`stage-${stage.id}`}
-                className="flex w-72 shrink-0 flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-page p-2"
-              >
-                <h2
-                  id={`stage-${stage.id}`}
-                  className="flex items-center justify-between px-1 text-[var(--text-sm)] font-semibold"
-                >
-                  <OptionChip option={stage} index={si} />
-                  <span className="tnum font-normal text-ink-muted">{column.length}</span>
-                </h2>
-                {column.length === 0 ? (
-                  <p className="rounded-[var(--radius-control)] border border-dashed border-hairline px-2 py-4 text-center text-[var(--text-xs)] text-ink-muted">
-                    Empty
-                  </p>
-                ) : (
-                  <ul className="flex flex-col gap-2">
-                    {column.map((entry, i) => (
-                      <li
-                        key={entry.id}
-                        className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-card p-3"
-                      >
-                        <Link
-                          href={recordHref(entry.recordId)}
-                          className="font-medium text-link underline-offset-2 hover:underline"
-                        >
-                          {entry.label}
-                        </Link>
-                        {writes ? (
-                          <>
-                            <StageSelect
-                              action={moveStageAction.bind(null, workspace.slug, list.id, entry.id)}
-                              stage={entry.stage}
-                              stages={list.stages}
-                              entryLabel={entry.label}
-                            />
-                            <Controls entry={entry} prev={column[i - 1]} next={column[i + 1]} />
-                          </>
-                        ) : null}
-                        <EntryHistory
-                          load={entryHistoryAction.bind(null, workspace.slug, entry.id)}
-                          stages={list.stages}
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </section>
-            );
-          })}
-          {list.entries.some((e) => !list.stages.some((s) => s.id === e.stage)) ? (
-            <section className="flex w-72 shrink-0 flex-col gap-2 rounded-[var(--radius-card)] border border-dashed border-hairline p-2">
-              <h2 className="px-1 text-[var(--text-sm)] font-semibold">Unknown stage</h2>
-              <ul className="flex flex-col gap-2">
-                {list.entries
-                  .filter((e) => !list.stages.some((s) => s.id === e.stage))
-                  .map((entry) => (
-                    <li
-                      key={entry.id}
-                      className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-hairline bg-card p-3"
-                    >
-                      <Link
-                        href={recordHref(entry.recordId)}
-                        className="font-medium text-link underline-offset-2 hover:underline"
-                      >
-                        {entry.label}
-                      </Link>
-                      {writes ? (
-                        <StageSelect
-                          action={moveStageAction.bind(null, workspace.slug, list.id, entry.id)}
-                          stage={entry.stage}
-                          stages={list.stages}
-                          entryLabel={entry.label}
-                        />
-                      ) : null}
-                    </li>
-                  ))}
-              </ul>
-            </section>
-          ) : null}
-        </div>
+        <BoardView
+          slug={workspace.slug}
+          listId={list.id}
+          objectSlug={list.objectType.apiSlug}
+          canMove={writes}
+        />
       ) : (
         <DataTable
           caption={`Entries in ${list.name}`}
