@@ -1,0 +1,21 @@
+{
+  "$comment": "Database objects that live outside schema.prisma. The §15 drift gate (`prisma migrate diff --from-migrations … --to-schema …`) must ignore DROP/CREATE statements that touch these. They are created in hand-written SQL below the `-- nexus:managed-outside-schema` marker of a migration, or by the index.build job for generated columns (§6.2/§6.6).",
+  "marker": "nexus:managed-outside-schema",
+  "extensions": ["vector", "pg_trgm", "citext"],
+  "indexes": [
+    "record_values_gin",
+    "record_search_vector_gin",
+    "record_embedding_hnsw",
+    "embedding_vector_hnsw",
+    "identity_handle_trgm",
+    "identity_display_name_trgm"
+  ],
+  "functions": ["nexus_current_workspace"],
+  "patterns": {
+    "$comment": "Regexes over object names. Generated columns for Attribute.isIndexed are named gen_<attributeId with dashes removed> on \"Record\" with a matching btree index; RLS policies are named rls_<table>_tenant (Phase 1).",
+    "columns": ["^gen_[0-9a-f]{32}$"],
+    "indexes": ["^record_gen_[0-9a-f]{32}_idx$"],
+    "policies": ["^rls_[A-Za-z]+_tenant$"],
+    "functions": ["^nexus_immutable_[a-z_]+$"]
+  }
+}
