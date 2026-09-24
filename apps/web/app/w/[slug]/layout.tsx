@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
+import { GlobalSearch } from '@/components/global-search';
 import { Rail, RAIL_COOKIE } from '@/components/rail';
 import { SignOutButton } from '@/components/sign-out-button';
 import { WorkspaceSwitcher } from '@/components/workspace-switcher';
@@ -39,6 +40,7 @@ export default async function WorkspaceLayout({
             role: w.role,
           }))}
         />
+        <GlobalSearch slug={workspace.slug} />
         <div className="flex min-w-0 items-center gap-3">
           <div className="hidden min-w-0 text-right sm:block">
             <p className="truncate text-[var(--text-sm)] font-medium leading-tight">

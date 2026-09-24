@@ -35,3 +35,29 @@ export function canManage(role: Role): boolean {
 export function canReadAudit(role: Role): boolean {
   return role === 'OWNER' || role === 'ADMIN' || role === 'MANAGER';
 }
+
+// ── Phase 2: the object graph (mirrors server/abilities.ts; the server decides, this only
+// chooses which controls to render) ─────────────────────────────────────────────────────
+
+/** Owners and admins define objects, attributes and shared views (`manage` all). */
+export function canEditSchema(role: Role): boolean {
+  return role === 'OWNER' || role === 'ADMIN';
+}
+
+/** Everyone but viewers creates and edits records and list entries. */
+export function canWriteRecords(role: Role): boolean {
+  return role !== 'VIEWER';
+}
+
+/** Owners, admins and managers delete records, run imports and manage lists. */
+export function canDeleteRecords(role: Role): boolean {
+  return role === 'OWNER' || role === 'ADMIN' || role === 'MANAGER';
+}
+
+export const canImport = canDeleteRecords;
+export const canManageLists = canDeleteRecords;
+
+/** Viewers are read-only in every sense: no export either. */
+export function canExport(role: Role): boolean {
+  return role !== 'VIEWER';
+}

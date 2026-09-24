@@ -68,8 +68,8 @@ function itemsFor(slug: string): RailItem[] {
   return [
     { kind: 'link', label: 'Home', href: base, icon: Icon.home, exact: true },
     { kind: 'planned', label: 'Inbox', phase: 7, icon: Icon.inbox },
-    { kind: 'planned', label: 'Records', phase: 3, icon: Icon.records },
-    { kind: 'planned', label: 'Lists', phase: 3, icon: Icon.lists },
+    { kind: 'link', label: 'Records', href: `${base}/records`, icon: Icon.records },
+    { kind: 'link', label: 'Lists', href: `${base}/lists`, icon: Icon.lists },
     { kind: 'planned', label: 'Reports', phase: 11, icon: Icon.reports },
     { kind: 'planned', label: 'Automations', phase: 10, icon: Icon.automations },
     { kind: 'planned', label: 'Integrations', phase: 9, icon: Icon.integrations },
@@ -79,8 +79,8 @@ function itemsFor(slug: string): RailItem[] {
 
 /**
  * Left rail (§12.1): 64px collapsed, 240px expanded. The choice persists in a cookie so the
- * server renders the same width on the next request. Only Home and Settings are live in
- * Phase 1; the rest are announced as planned with the phase that ships them.
+ * server renders the same width on the next request. Home, Records, Lists and Settings are
+ * live (Phase 2); the rest are announced as planned with the phase that ships them.
  */
 export function Rail({ slug, initialCollapsed }: { slug: string; initialCollapsed: boolean }) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);

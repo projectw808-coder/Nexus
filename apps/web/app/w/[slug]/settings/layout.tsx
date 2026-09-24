@@ -17,6 +17,7 @@ export default async function SettingsLayout({
   const tabs = [
     { label: 'General', href: `${base}/general` },
     { label: 'Members', href: `${base}/members` },
+    { label: 'Objects', href: `${base}/objects` },
     // Members and viewers cannot read the log; the tab still shows so the closed door is visible.
     {
       label: canReadAudit(workspace.role) ? 'Audit log' : 'Audit log (restricted)',

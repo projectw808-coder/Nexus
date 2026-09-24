@@ -33,3 +33,21 @@ export function remediationOf(e: unknown): string | null {
 export function isCode(e: unknown, ...codes: TRPC_ERROR_CODE_KEY[]): boolean {
   return e instanceof TRPCError && codes.includes(e.code);
 }
+
+/**
+ * Field-level errors from a VALIDATION NexusError (`details.fields` as written by
+ * `validateRecordValues`), keyed by apiSlug so a form can land each sentence on its input.
+ */
+export function fieldErrorsOf(e: unknown): Record<string, string> {
+  const cause = e instanceof TRPCError ? e.cause : e;
+  if (!NexusError.is(cause)) return {};
+  const fields = cause.details['fields'];
+  if (!Array.isArray(fields)) return {};
+  const out: Record<string, string> = {};
+  for (const f of fields) {
+    if (!f || typeof f !== 'object') continue;
+    const { apiSlug, message } = f as { apiSlug?: unknown; message?: unknown };
+    if (typeof apiSlug === 'string' && typeof message === 'string') out[apiSlug] = message;
+  }
+  return out;
+}
