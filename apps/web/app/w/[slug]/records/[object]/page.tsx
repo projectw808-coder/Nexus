@@ -1,18 +1,14 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { buttonClass, LinkButton } from '@/components/button';
-import { DataTable, Td, Th } from '@/components/data-table';
 import { EmptyState } from '@/components/empty-state';
 import { ErrorState, InlineNotice } from '@/components/error-state';
 import { CONTROL_CLASS } from '@/components/field';
-import { LocalDateTime } from '@/components/local-time';
+import { DataGrid } from '@/components/data-grid/data-grid';
 import { PageHeader } from '@/components/page-header';
 import { PermissionDenied, PermissionNote } from '@/components/permission-denied';
-import { ValueCell } from '@/components/value-cell';
 import { api } from '@/lib/api';
-import { isSortable } from '@/lib/attributes';
 import { describeError, isCode } from '@/lib/errors';
-import { isoOf } from '@/lib/format';
 import {
   filterParam,
   parseTableQuery,
@@ -21,9 +17,14 @@ import {
   toRecordQuery,
   withoutCursor,
   type SearchParams,
-  type TableQuery,
 } from '@/lib/record-query';
-import { canEditSchema, canExport, canImport, canWriteRecords } from '@/lib/roles';
+import {
+  canDeleteRecords,
+  canEditSchema,
+  canExport,
+  canImport,
+  canWriteRecords,
+} from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
 import { saveViewAction } from './actions';
 import { FilterBuilder } from './filter-builder';
@@ -31,39 +32,6 @@ import { SavedViews, type ViewOption } from './saved-views';
 
 const PAGE_SIZE = 50;
 /** Phase 3 brings the real table; until then the first columns by position are shown. */
-const MAX_COLUMNS = 8;
-
-function SortHeader({
-  base,
-  query,
-  column,
-  label,
-  sortable,
-}: {
-  base: string;
-  query: TableQuery;
-  column: string;
-  label: string;
-  sortable: boolean;
-}) {
-  const active = query.sort === column;
-  if (!sortable) return <Th>{label}</Th>;
-  const nextDir = active && query.dir === 'asc' ? 'desc' : 'asc';
-  const href = tableHref(base, withoutCursor({ ...query, sort: column, dir: nextDir }));
-  return (
-    <Th aria-sort={active ? (query.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
-      <Link href={href} className="inline-flex items-center gap-1 hover:text-ink">
-        {label}
-        <span aria-hidden className={active ? 'text-ink' : 'text-transparent'}>
-          {active && query.dir === 'desc' ? '▼' : '▲'}
-        </span>
-        <span className="sr-only">
-          {active ? `, sorted ${query.dir === 'asc' ? 'ascending' : 'descending'}` : ', sortable'}
-        </span>
-      </Link>
-    </Th>
-  );
-}
 
 export default async function RecordsTablePage({
   params,
@@ -130,19 +98,14 @@ export default async function RecordsTablePage({
     throw e;
   }
 
-  const [views, objectTypes] = await Promise.all([
-    client.view.list({ objectTypeId: page.objectType.id }).catch((e: unknown) => {
-      if (isCode(e, 'FORBIDDEN')) return [];
-      throw e;
-    }),
-    client.objectType.list(),
-  ]);
-  const objectSlugById = Object.fromEntries(objectTypes.map((o) => [o.id, o.apiSlug]));
+  const views = await client.view.list({ objectTypeId: page.objectType.id }).catch((e: unknown) => {
+    if (isCode(e, 'FORBIDDEN')) return [];
+    throw e;
+  });
 
   const ot = page.objectType;
   const visible = [...page.attributes].sort((a, b) => a.position - b.position);
-  const columns = visible.slice(0, MAX_COLUMNS);
-  const hidden = visible.length - columns.length;
+  const lists = await client.list.list({ objectType: object });
   const filtered = table.filters.length > 0 || !!table.q;
   const writes = canWriteRecords(workspace.role);
   const imports = canImport(workspace.role);
@@ -316,73 +279,17 @@ export default async function RecordsTablePage({
           />
         )
       ) : (
-        <>
-          <DataTable
-            caption={`${ot.plural}${filtered ? ', filtered' : ''}`}
-            head={
-              <>
-                <Th>{ot.singular}</Th>
-                {columns.map((a) => (
-                  <SortHeader
-                    key={a.id}
-                    base={base}
-                    query={table}
-                    column={a.apiSlug}
-                    label={a.title}
-                    sortable={isSortable(a.type)}
-                  />
-                ))}
-                <SortHeader base={base} query={table} column="updatedAt" label="Updated" sortable />
-              </>
-            }
-          >
-            {page.items.map((r) => (
-              <tr key={r.id} className="hover:bg-raised">
-                <Td>
-                  <Link
-                    href={`${base}/${r.id}`}
-                    className="font-medium text-link underline-offset-2 hover:underline"
-                  >
-                    {r.label}
-                  </Link>
-                </Td>
-                {columns.map((a) => (
-                  <Td key={a.id} className="max-w-[24rem]">
-                    <ValueCell
-                      attribute={a}
-                      value={r.values[a.id]}
-                      slug={workspace.slug}
-                      objectSlugById={objectSlugById}
-                    />
-                  </Td>
-                ))}
-                <Td className="tnum whitespace-nowrap text-ink-secondary">
-                  <LocalDateTime iso={isoOf(r.updatedAt) ?? ''} />
-                </Td>
-              </tr>
-            ))}
-          </DataTable>
-          <div className="flex flex-wrap items-center justify-between gap-3 text-[var(--text-sm)] text-ink-muted">
-            <span className="tnum">
-              {page.items.length} of {page.total.toLocaleString('en-US')}
-              {table.cursor ? ' (continued)' : ''}
-              {hidden > 0
-                ? ` · ${hidden} more ${hidden === 1 ? 'attribute' : 'attributes'} on each record's page`
-                : ''}
-            </span>
-            {page.nextCursor ? (
-              <Link
-                href={tableHref(base, { ...table, cursor: page.nextCursor })}
-                className={buttonClass('secondary')}
-                rel="next"
-              >
-                Load more
-              </Link>
-            ) : (
-              <span>End of list</span>
-            )}
-          </div>
-        </>
+        <DataGrid
+          slug={workspace.slug}
+          objectType={{ id: ot.id, apiSlug: ot.apiSlug, singular: ot.singular, plural: ot.plural }}
+          attributes={visible}
+          lists={lists.map((l) => ({ id: l.id, name: l.name, kind: l.kind }))}
+          filters={query.filters}
+          initialSort={query.sort}
+          search={query.search}
+          canEdit={writes}
+          canDelete={canDeleteRecords(workspace.role)}
+        />
       )}
     </div>
   );
