@@ -98,17 +98,59 @@ collapse, confirm step, slug suggestion) are verified by typecheck and build onl
 (Phase 11) · field-level permissions (Phase 2, needs attributes) · `Team`/`TeamMember` UI ·
 `x-pathname` header so sign-in returns to the original page (a `proxy.ts` in Phase 3).
 
-## Phase 2 — The object graph
+## Phase 2 — The object graph ✅ built
 
 ObjectType/Attribute/Record/RecordRelation, JSONB + generated-column indexing with the migration
 generator, validation from attribute types, List/ListEntry with fractional indexing and per-list
 attributes, saved views, search (FTS + trigram), CSV import with column mapping and a dry-run
 preview, export.
 
-- [ ] create a custom object with 12 attribute types and 100k seeded records
-- [ ] filter+sort on an indexed attribute < 200 ms p95
-- [ ] a record sits in three pipelines with different stage values in each
-- [ ] import 10k rows with a preview and a rollback
+- [x] create a custom object with 12 attribute types and 100k seeded records —
+      `packages/db/src/objects/objects.test.ts` creates a "widget" object with TEXT, NUMBER,
+      CURRENCY, DATE, DATETIME, SELECT, MULTISELECT, BOOLEAN, EMAIL, PHONE, URL, RATING and seeds
+      100,000 rows in SQL.
+- [x] filter+sort on an indexed attribute < 200 ms p95 — the same test builds the generated
+      column + btree through `runIndexBuild` (ADR-009) and asserts p95 < 200 ms over 20 runs on
+      PGlite; the trigger keeps the column current for new writes.
+- [x] a record sits in three pipelines with different stage values in each — asserted at the db
+      layer and through the API (`apps/web/server/objects.test.ts`), with stage history.
+- [x] import 10k rows with a preview and a rollback — dry-run preview reports 9,999 valid / 1
+      invalid with the row and column; the run creates 9,999 records tagged with the job; rollback
+      soft-deletes exactly those and marks the job ROLLED_BACK.
+
+**Done:** attribute type system with per-type config and value validation, CSV coercion and the
+filter DSL (`packages/core/src/attributes.ts`) · system Person/Company/Deal objects seeded per
+workspace with protected attributes (ADR-001) and a default Sales pipeline · record query builder
+(keyset cursor, filters typed per attribute, FTS + trigram search) and validated writes with
+uniqueness, relation sync and field-level permissions applied in the serializer, on writes and in
+export · generated-column index builder as a job with progress, plus 24h reversible attribute
+deletion and purge · lists with fractional ordering and rebalance, stage history · saved views ·
+CSV import (preview → run in chunks → rollback) · export CSV/JSON · tRPC routers `objectType`,
+`attribute`, `record` + `person`/`company`/`deal` conveniences, `list`, `listEntry`, `view`,
+`search`, `import`, `export` — all covered by the generated isolation/viewer/audit suite (75
+procedures) · worker processors `index.build`, `index.drop`, hourly `attribute.purge`, and resume
+of pending builds at startup · job dispatch with inline fallback when Redis is absent (ADR-010) ·
+screens: records index and table with filters/sort/search/saved views/export, record create/edit/
+detail, lists index and pipeline board, objects & attributes admin with migration preview and
+restore, import wizard, global search.
+
+**Verification notes.** Unit/integration: 9 db object-graph tests (incl. the 100k benchmark, the
+10k import and the pre-Phase-2 workspace backfill), 6 router tests, the generated
+isolation/viewer/audit suite over 75 procedures, `pnpm check` green, `next build` green. On the
+running app (PGlite backend, no Docker or Redis): a workspace created in Phase 1 received its
+system objects on first open; the objects admin rendered the migration preview line; creating a
+NUMBER attribute with "indexed" dispatched the build inline and it reached READY 100%; a CSV
+import previewed 3 rows with the bad e-mail flagged at row 4 / column Email, ran to 2 created +
+1 failed, and its page showed "completed" with the rollback control; the records table filtered
+`score ≥ 90`, sorted by the indexed attribute and searched by name; global search found the
+imported person; the Sales pipeline board rendered its stages. Two environment notes: heavy
+PGlite suites must not run in parallel (test task concurrency is 1), and the UI agent building
+the Phase 2 screens was cut off by a session limit — the objects admin, import wizard and search
+page were finished by hand afterwards.
+
+**Deferred:** FORMULA/ROLLUP evaluation and AI_RESEARCH values (Phase 10; the types validate
+and are read-only) · the 1M-row benchmark against real Postgres (`k6`/Phase 11; 100k on PGlite
+here) · TanStack table/board interactions (Phase 3) · OpenSearch behind the search interface.
 
 ## Phase 3 — Records UI
 
