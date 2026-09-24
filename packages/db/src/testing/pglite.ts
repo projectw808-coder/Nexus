@@ -12,6 +12,7 @@ import { citext } from '@electric-sql/pglite/contrib/citext';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { vector } from '@electric-sql/pglite-pgvector';
 import { PrismaPGlite } from 'pglite-prisma-adapter';
+import { registerPglite } from '../ddl.ts';
 import { PrismaClient } from '../generated/prisma/client.ts';
 import { createTenantRuntime, type TenantRuntime } from '../scoped.ts';
 import { createTenancy, type Tenancy } from '../tenancy.ts';
@@ -57,6 +58,7 @@ export async function createTestDatabase(): Promise<TestDatabase> {
     }
   }
   await pglite.exec(`SET ROLE ${APP_ROLE};`);
+  registerPglite(pglite);
 
   const prisma = new PrismaClient({ adapter: new PrismaPGlite(pglite) });
   const runtime = createTenantRuntime(prisma);

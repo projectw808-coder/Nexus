@@ -8,14 +8,21 @@
     "record_embedding_hnsw",
     "embedding_vector_hnsw",
     "identity_handle_trgm",
-    "identity_display_name_trgm"
+    "identity_display_name_trgm",
+    "record_values_text_trgm"
   ],
-  "functions": ["nexus_current_workspace", "nexus_rls_bypass"],
+  "functions": [
+    "nexus_current_workspace",
+    "nexus_rls_bypass",
+    "nexus_jsonb_text",
+    "nexus_record_search_sync"
+  ],
   "patterns": {
     "$comment": "Regexes over object names. Generated columns for Attribute.isIndexed are named gen_<attributeId with dashes removed> on \"Record\" with a matching btree index; RLS policies are named rls_<table>_tenant (Phase 1).",
     "columns": ["^gen_[0-9a-f]{32}$"],
     "indexes": ["^record_gen_[0-9a-f]{32}_idx$"],
     "policies": ["^rls_[A-Za-z]+_tenant$"],
-    "functions": ["^nexus_immutable_[a-z_]+$"]
+    "functions": ["^nexus_immutable_[a-z_]+$", "^nexus_gen_[0-9a-f]{32}_sync$"],
+    "triggers": ["^record_gen_[0-9a-f]{32}_sync$", "^record_search_sync$"]
   }
 }

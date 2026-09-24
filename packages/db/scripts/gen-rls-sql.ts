@@ -18,7 +18,7 @@ import {
 
 export const APP_ROLE = 'nexus_app';
 
-export function renderRlsSql(tables: readonly string[]): string {
+export function renderRlsSql(tables: readonly string[], tablesOnly = false): string {
   const perTable = tables
     .map(
       (t) => `ALTER TABLE "${t}" ENABLE ROW LEVEL SECURITY;
@@ -38,23 +38,32 @@ CREATE POLICY rls_${t}_tenant ON "${t}"
 -- infra/postgres/init.sql and the CI workflow). Migrations run as the table owner. FORCE makes
 -- the policies apply to the owner too, so even a misconfigured DATABASE_URL is contained.
 
-DROP FUNCTION IF EXISTS nexus_current_workspace();
+${
+  tablesOnly
+    ? ''
+    : `DROP FUNCTION IF EXISTS nexus_current_workspace();
 CREATE FUNCTION nexus_current_workspace() RETURNS text
   LANGUAGE sql STABLE PARALLEL SAFE
   AS $$ SELECT NULLIF(current_setting('app.workspace_id', true), '') $$;
 
 CREATE OR REPLACE FUNCTION nexus_rls_bypass() RETURNS boolean
   LANGUAGE sql STABLE PARALLEL SAFE
-  AS $$ SELECT COALESCE(current_setting('app.rls_bypass', true), '') = 'on' $$;
+  AS $ SELECT COALESCE(current_setting('app.rls_bypass', true), '') = 'on' $;
+`
+}
 
--- The tenant root is reachable only as the current workspace (or with bypass).
+${
+  tablesOnly
+    ? ''
+    : `-- The tenant root is reachable only as the current workspace (or with bypass).
 ALTER TABLE "Workspace" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Workspace" FORCE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS rls_Workspace_tenant ON "Workspace";
 CREATE POLICY rls_Workspace_tenant ON "Workspace"
   USING ("id" = nexus_current_workspace() OR nexus_rls_bypass())
   WITH CHECK ("id" = nexus_current_workspace() OR nexus_rls_bypass());
-
+`
+}
 ${perTable}
 
 -- Application role privileges (only when the role exists in this cluster).
@@ -84,7 +93,9 @@ if (outFlag !== -1) {
     console.error('gen-rls-sql: --out <file> required');
     process.exit(2);
   }
-  const tables = tenantTables();
-  writeFileSync(out, renderRlsSql(tables), 'utf8');
+  const onlyFlag = process.argv.indexOf('--tables');
+  const only = onlyFlag !== -1 ? new Set((process.argv[onlyFlag + 1] ?? '').split(',')) : null;
+  const tables = tenantTables().filter((t) => !only || only.has(t));
+  writeFileSync(out, renderRlsSql(tables, only !== null), 'utf8');
   console.log(`gen-rls-sql: wrote ${out} (${tables.length} tenant tables + Workspace).`);
 }

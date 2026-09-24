@@ -6,6 +6,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { NexusError } from '@nexus/core';
 import { writeSystemAudit } from './audit.ts';
+import { seedSystemObjects } from './objects/system.ts';
 import type { Role } from './generated/prisma/enums.ts';
 import type { Actor, ActorGrant, TenantRuntime } from './scoped.ts';
 
@@ -86,6 +87,21 @@ export function createTenancy(runtime: TenantRuntime) {
       });
     },
 
+    /**
+     * Workspaces created before Phase 2 have no Person/Company/Deal object types. Seed them
+     * once, idempotently; called when a workspace is opened. Returns true when it seeded.
+     */
+    async ensureSystemObjects(workspaceId: string): Promise<boolean> {
+      return runtime.withSystem(async (db) => {
+        const existing = await db.objectType.count({
+          where: { workspaceId, isSystem: true, deletedAt: null },
+        });
+        if (existing > 0) return false;
+        await seedSystemObjects(db, workspaceId);
+        return true;
+      });
+    },
+
     async createWorkspace(input: {
       name: string;
       slug: string;
@@ -124,6 +140,7 @@ export function createTenancy(runtime: TenantRuntime) {
             joinedAt: new Date(),
           },
         });
+        await seedSystemObjects(db, ws.id);
         await writeSystemAudit(
           db,
           ws.id,

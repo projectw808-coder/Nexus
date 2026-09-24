@@ -39,3 +39,57 @@ export type { ModelMeta, RelationMeta } from './generated-tenant-models.ts';
 // ── Auth.js adapter (non-tenant tables; lazily bound to the base client) ────
 export { authAdapter, createAuthAdapter } from './auth-adapter.ts';
 export type { AuthAdapter } from './auth-adapter.ts';
+
+// ── Phase 2: the object graph ────────────────────────────────────────────────
+export { SYSTEM_OBJECTS, DEAL_STAGES, seedSystemObjects } from './objects/system.ts';
+export {
+  loadAttributes,
+  toDef,
+  attributeAccess,
+  visibleAttributes,
+  writableAttributes,
+  redactValues,
+} from './objects/attributes.ts';
+export type { AttributeRow } from './objects/attributes.ts';
+export {
+  queryRecords,
+  countRecords,
+  createRecord,
+  updateRecord,
+  softDeleteRecords,
+  restoreRecords,
+  genColumn,
+} from './objects/records.ts';
+export type { RecordRow, QueryResult } from './objects/records.ts';
+export {
+  runIndexBuild,
+  dropIndexArtifacts,
+  purgeDeletedAttributes,
+  pendingIndexBuilds,
+} from './objects/indexing.ts';
+export type { IndexBuildProgress } from './objects/indexing.ts';
+export {
+  createList,
+  addEntry,
+  moveEntry,
+  updateEntryValues,
+  removeEntry,
+  listAttributeDefs,
+  stagesOf,
+} from './objects/lists.ts';
+export type { StageDef } from './objects/lists.ts';
+export {
+  previewImport,
+  suggestMapping,
+  runImport,
+  rollbackImport,
+  IMPORT_MAX_BYTES,
+  IMPORT_MAX_ROWS,
+} from './objects/imports.ts';
+export type {
+  ColumnMapping,
+  ImportOptions,
+  ImportStats,
+  RowError,
+  Preview,
+} from './objects/imports.ts';

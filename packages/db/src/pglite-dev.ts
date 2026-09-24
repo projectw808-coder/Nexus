@@ -9,6 +9,7 @@ import { citext } from '@electric-sql/pglite/contrib/citext';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { vector } from '@electric-sql/pglite-pgvector';
 import { PrismaPGlite } from 'pglite-prisma-adapter';
+import { registerPglite } from './ddl.ts';
 import { migrationFiles } from './testing/pglite.ts';
 
 export const APP_ROLE = 'nexus_app';
@@ -37,5 +38,6 @@ export async function openPgliteAdapter(dir: string): Promise<PrismaPGlite> {
     await pglite.query('INSERT INTO "_nexus_migrations" (name) VALUES ($1)', [m.name]);
   }
   await pglite.exec(`SET ROLE ${APP_ROLE};`);
+  registerPglite(pglite);
   return new PrismaPGlite(pglite);
 }

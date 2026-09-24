@@ -115,6 +115,24 @@ enum AttributeType {
   SOCIAL_HANDLE
 }
 
+/// Lifecycle of an attribute's generated column + btree (§6.6, ADR-009).
+enum IndexState {
+  NONE
+  BUILDING
+  READY
+  FAILED
+  DROPPING
+}
+
+/// CSV import lifecycle (§16 Phase 2).
+enum ImportStatus {
+  PREVIEW
+  RUNNING
+  COMPLETED
+  FAILED
+  ROLLED_BACK
+}
+
 enum ListKind {
   PIPELINE
   COLLECTION
@@ -327,6 +345,7 @@ model Workspace {
 
   memberships                  Membership[]
   invitations                  Invitation[]
+  importJobs                   ImportJob[]
   teams                        Team[]
   teamMembers                  TeamMember[]
   objectTypes                  ObjectType[]
@@ -391,6 +410,7 @@ model User {
 
   memberships                  Membership[]              @relation("MembershipUser")
   sentInvitations              Invitation[]              @relation("InvitationInvitedBy")
+  importJobs                   ImportJob[]
   invitedMemberships           Membership[]              @relation("MembershipInvitedBy")
   teamMemberships              TeamMember[]
   createdRecords               Record[]
@@ -525,6 +545,7 @@ model ObjectType {
   records    Record[]
   lists      List[]
   savedViews SavedView[]
+  importJobs ImportJob[]
 
   @@unique([workspaceId, apiSlug])
 }
@@ -547,6 +568,12 @@ model Attribute {
   isRequired   Boolean       @default(false)
   isSystem     Boolean       @default(false)
   isIndexed    Boolean       @default(false)
+  indexState   IndexState    @default(NONE)
+  /// 0..100 while BUILDING.
+  indexProgress Int          @default(0)
+  indexError   String?
+  /// When a soft-deleted attribute's column and index are dropped (24h after deletion).
+  purgeAfter   DateTime?
   position     Int           @default(0)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
@@ -577,6 +604,7 @@ model Record {
   searchVector Unsupported("tsvector")?
   embedding    Unsupported("vector(1536)")?
   createdById  String?
+  importJobId  String?
   mergedIntoId String?
   mergeState   MergeState                    @default(ACTIVE)
   createdAt    DateTime                      @default(now())
@@ -586,6 +614,7 @@ model Record {
   workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   objectType  ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
   createdBy   User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  importJob   ImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
   mergedInto  Record?    @relation("RecordMergedInto", fields: [mergedIntoId], references: [id], onDelete: SetNull)
   mergedFrom  Record[]   @relation("RecordMergedInto")
 
@@ -610,8 +639,10 @@ model Record {
   @@index([workspaceId, objectTypeId, updatedAt(sort: Desc)])
   @@index([workspaceId, objectTypeId, mergeState])
   @@index([workspaceId, mergedIntoId])
+  @@index([workspaceId, importJobId])
   @@index([objectTypeId])
   @@index([createdById])
+  @@index([importJobId])
 }
 
 /// A RELATIONSHIP attribute value: from-record → to-record through an attribute.
@@ -637,6 +668,45 @@ model RecordRelation {
 
 /// A pipeline or collection. A record can sit in many lists with different
 /// per-list stage data in each (ListEntry.values).
+/// A CSV import (§16 Phase 2): the source is kept so the preview, the run and a rollback all work
+/// from one row. Records created by a run carry importJobId; rollback soft-deletes exactly those.
+model ImportJob {
+  id           String       @id @default(uuid())
+  workspaceId  String
+  objectTypeId String
+  createdById  String?
+  status       ImportStatus @default(PREVIEW)
+  fileName     String
+  delimiter    String       @default(",")
+  /// The raw CSV text (bounded by the import size limit).
+  sourceText   String
+  /// header -> { attributeId } | { skip: true }
+  mapping      Json         @default("{}")
+  /// { dedupeAttributeId?, updateExisting? }
+  options      Json         @default("{}")
+  /// { total, created, updated, skipped, failed }
+  stats        Json         @default("{}")
+  /// Sample of row-level errors from the last preview/run.
+  errors       Json         @default("[]")
+  progress     Int          @default(0)
+  error        String?
+  startedAt    DateTime?
+  finishedAt   DateTime?
+  rolledBackAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  objectType ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  records    Record[]
+
+  @@index([workspaceId, objectTypeId, createdAt(sort: Desc)])
+  @@index([objectTypeId])
+  @@index([createdById])
+}
+
 model List {
   id           String    @id @default(uuid())
   workspaceId  String
