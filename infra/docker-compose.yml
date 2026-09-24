@@ -1,0 +1,102 @@
+name: nexus
+
+# Local infrastructure for `pnpm dev`. Every service has a healthcheck so `up --wait` blocks
+# until the stack is actually usable. Data lives in named volumes; `pnpm infra:reset` wipes them.
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus
+      POSTGRES_DB: nexus
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - log_min_duration_statement=250
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U nexus -d nexus']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:latest
+    command: ['server', '/data', '--console-address', ':9001']
+    environment:
+      MINIO_ROOT_USER: nexus
+      MINIO_ROOT_PASSWORD: nexus-secret
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'mc', 'ready', 'local']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 nexus nexus-secret &&
+      mc mb --ignore-existing local/nexus &&
+      echo 'bucket ready'
+      "
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '8025:8025' # web UI
+      - '1025:1025' # SMTP
+    environment:
+      MP_SMTP_AUTH_ACCEPT_ANY: 1
+      MP_SMTP_AUTH_ALLOW_INSECURE: 1
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://localhost:8025/livez']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Trace backend for the Phase 0 acceptance check ("a trace from an HTTP request through a
+  # queued job is visible end to end"). Both apps export OTLP/HTTP to :4318; UI on :16686.
+  jaeger:
+    image: jaegertracing/jaeger:2.21.0
+    ports:
+      - '16686:16686' # UI
+      - '4318:4318' # OTLP http
+      - '4317:4317' # OTLP grpc
+    healthcheck:
+      test: ['CMD', 'wget', '-q', '-O', '-', 'http://localhost:16686/']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

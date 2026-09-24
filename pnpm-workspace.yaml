@@ -1,0 +1,16 @@
+packages:
+  - apps/*
+  - packages/*
+  - packages/connectors/*
+
+# Packages allowed to run install scripts (pnpm ignores the rest by design).
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  '@tailwindcss/oxide': true
+  esbuild: true
+  msgpackr-extract: true
+  prisma: true
+  protobufjs: true
+  sharp: true
+  unrs-resolver: true

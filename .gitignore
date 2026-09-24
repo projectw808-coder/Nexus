@@ -1,0 +1,17 @@
+node_modules/
+.pnpm-store/
+.turbo/
+dist/
+.next/
+out/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+packages/db/src/generated/
+infra/.data/
+.DS_Store
+Thumbs.db
+apps/web/next-env.d.ts
+.claude/

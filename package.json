@@ -1,0 +1,38 @@
+{
+  "name": "nexus",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "packageManager": "pnpm@12.5.1",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "pnpm infra:up && turbo run dev",
+    "infra:up": "docker compose -f infra/docker-compose.yml up -d --wait",
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "infra:reset": "docker compose -f infra/docker-compose.yml down -v",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "lint": "eslint .",
+    "test": "turbo run test",
+    "check": "turbo run typecheck test && pnpm lint && pnpm format:check",
+    "db:generate": "pnpm --filter @nexus/db generate",
+    "db:migrate": "pnpm --filter @nexus/db migrate:dev",
+    "db:deploy": "pnpm --filter @nexus/db migrate:deploy",
+    "db:drift": "pnpm --filter @nexus/db drift",
+    "db:seed": "pnpm --filter @nexus/db seed",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@next/eslint-plugin-next": "16.3.6",
+    "@types/node": "^24.0.0",
+    "eslint": "^10.11.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "3.9.9",
+    "turbo": "2.11.3",
+    "typescript": "5.9.3",
+    "typescript-eslint": "^8.70.1"
+  }
+}

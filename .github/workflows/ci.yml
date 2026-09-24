@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus
+  SHADOW_DATABASE_URL: postgresql://nexus:nexus@localhost:5432/nexus_shadow
+  REDIS_URL: redis://localhost:6379
+  S3_ENDPOINT: http://localhost:9000
+  S3_BUCKET: nexus
+  S3_ACCESS_KEY: nexus
+  S3_SECRET_KEY: nexus-secret
+  APP_URL: http://localhost:3000
+  AUTH_SECRET: ci-secret-ci-secret-ci-secret-ci-secret-ci
+  KMS_MASTER_KEY_ID: local:ci
+
+jobs:
+  # Every gate in spec §15 is a job or a step here. Gates that later phases add (Playwright
+  # e2e, axe, Lighthouse CI, k6, coverage floors) have a commented placeholder so they are
+  # wired into the same workflow instead of a new one.
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: nexus
+          POSTGRES_PASSWORD: nexus
+          POSTGRES_DB: nexus
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U nexus -d nexus" --health-interval 5s --health-timeout 3s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm db:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Lint (incl. nexus/* rules)
+        run: pnpm lint
+      - name: Format
+        run: pnpm format:check
+      - name: Unit + integration tests
+        run: pnpm test
+
+      - name: Create shadow database
+        run: psql "$DATABASE_URL" -c 'CREATE DATABASE nexus_shadow;'
+      - name: Apply migrations
+        run: pnpm db:deploy
+      - name: Migration drift gate
+        # Fails if schema.prisma and prisma/migrations disagree (§15). Objects managed outside
+        # the schema (GIN/HNSW indexes, RLS helpers) are listed in packages/db/prisma/drift-allowlist.json.
+        run: pnpm db:drift
+
+      - name: No TODO(security) in diff
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          if git diff "origin/${{ github.base_ref }}"...HEAD | grep -n '^+.*TODO(security)'; then
+            echo '::error::TODO(security) markers are not allowed in a diff'; exit 1; fi
+
+      - name: Build web
+        run: pnpm --filter @nexus/web build
+
+      # Phase 3+: - name: Playwright e2e (critical path)     run: pnpm --filter @nexus/web e2e
+      # Phase 3+: - name: axe on every route                 run: pnpm --filter @nexus/web a11y
+      # Phase 3+: - name: Lighthouse CI budgets              run: pnpm dlx @lhci/cli autorun
+      # Phase 4+: - name: k6 smoke (10k webhooks/min)         run: k6 run infra/k6/webhooks.js
+      # Phase 4+: coverage floor 80% in packages/core and packages/connectors/* (vitest --coverage)

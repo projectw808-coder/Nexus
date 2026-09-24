@@ -1,0 +1,8 @@
+node_modules
+dist
+.next
+.turbo
+pnpm-lock.yaml
+packages/db/src/generated
+packages/db/prisma/migrations
+apps/web/next-env.d.ts
