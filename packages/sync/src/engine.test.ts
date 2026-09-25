@@ -436,7 +436,9 @@ describe('webhooks', () => {
       headers: { 'content-type': 'application/json' },
     });
     expect(unsigned.status).toBe(401);
-    const unknown = await receiveWebhook(deps, 'X', webhook.request);
+    // GMAIL has no connector registered (Google Workspace connectors are deferred past Phase 8,
+    // ADR-019) — any platform absent from the registry proves the "unknown platform" 404 path.
+    const unknown = await receiveWebhook(deps, 'GMAIL', webhook.request);
     expect(unknown.status).toBe(404);
     await deps.bus.drain();
     const c = await counts(connectionId);

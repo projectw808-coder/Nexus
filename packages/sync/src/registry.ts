@@ -4,9 +4,14 @@
  * the throughput benchmark have a target; Meta serves both FACEBOOK and INSTAGRAM (one app,
  * one login, two independently manageable connection kinds).
  */
+import { createKeitaroConnector, type KeitaroConfig } from '@nexus/connector-keitaro';
+import { createLinkedinConnector, type LinkedinConfig } from '@nexus/connector-linkedin';
 import { createMetaConnector, type MetaConfig } from '@nexus/connector-meta';
 import { createMockConnector, mockManifest } from '@nexus/connector-mock';
 import type { Connector, Platform } from '@nexus/connector-sdk';
+import { createTikTokConnector, type TikTokConfig } from '@nexus/connector-tiktok';
+import { createXConnector, type XConfig } from '@nexus/connector-x';
+import { createYoutubeConnector, type YoutubeConfig } from '@nexus/connector-youtube';
 import { NexusError } from '@nexus/core';
 
 export type RegistryOptions = {
@@ -14,6 +19,16 @@ export type RegistryOptions = {
   mockBaseUrl?: string;
   /** Meta app id / Login configuration / Graph origin (the Graph double in tests). */
   meta?: MetaConfig;
+  /** Keitaro has no app-level config — every connection carries its own base URL and key (§8.6). */
+  keitaro?: KeitaroConfig;
+  /** X API origin (a double's origin in tests). */
+  x?: XConfig;
+  /** LinkedIn API origin (a double's origin in tests). */
+  linkedin?: LinkedinConfig;
+  /** TikTok API origin and Business/Display provider selection (§8.4). */
+  tiktok?: TikTokConfig;
+  /** YouTube Data API origin (a double's origin in tests). */
+  youtube?: YoutubeConfig;
   /** Extra or replacement connectors (tests, future platforms). */
   overrides?: Partial<Record<Platform, Connector<unknown>>>;
 };
@@ -33,6 +48,17 @@ export function createConnectorRegistry(opts: RegistryOptions = {}): ConnectorRe
   const meta = createMetaConnector(opts.meta ?? {});
   table.set('FACEBOOK', meta);
   table.set('INSTAGRAM', meta);
+  table.set('KEITARO', createKeitaroConnector(opts.keitaro ?? {}));
+  table.set('X', createXConnector(opts.x ?? { baseUrl: 'https://api.x.com' }));
+  table.set(
+    'LINKEDIN',
+    createLinkedinConnector(opts.linkedin ?? { baseUrl: 'https://api.linkedin.com' }),
+  );
+  table.set('TIKTOK', createTikTokConnector(opts.tiktok ?? {}));
+  table.set(
+    'YOUTUBE',
+    createYoutubeConnector(opts.youtube ?? { baseUrl: 'https://www.googleapis.com' }),
+  );
   for (const [platform, connector] of Object.entries(opts.overrides ?? {})) {
     if (connector) table.set(platform as Platform, connector);
   }
