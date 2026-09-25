@@ -2,6 +2,7 @@
  * Test harness for the tRPC layer: an in-process caller wired to a PGlite database, a memory
  * mail provider and a fake session. No HTTP, no Auth.js.
  */
+import { createKeitaroDouble } from '@nexus/connector-keitaro/testing';
 import { createMockPlatform } from '@nexus/connector-mock';
 import {
   MemoryBudgetStore,
@@ -30,6 +31,7 @@ export type Seed = {
   /** Engine handle whose bus only records; the mock platform runs in-process. */
   sync: SyncDeps & { bus: RecordingBus };
   mockPlatform: ReturnType<typeof createMockPlatform>;
+  keitaroDouble: ReturnType<typeof createKeitaroDouble>;
   users: { alice: SessionUser; bob: SessionUser; carol: SessionUser };
   /** Alice owns Acme; Bob owns Globex; Carol is a VIEWER in Acme. */
   acme: { id: string; slug: string };
@@ -58,6 +60,7 @@ export async function seedWorkspaces(): Promise<Seed> {
   const mail = new MemoryMailProvider();
   const jobs = recordingDispatcher();
   const mockPlatform = createMockPlatform({ totalObjects: 30, accounts: 1 });
+  const keitaroDouble = createKeitaroDouble({ totalConversions: 5, apiKey: 'test-keitaro-key' });
   const quiet = { debug() {}, info() {}, warn() {}, error() {} };
   const sync: Seed['sync'] = {
     runtime: db.runtime,
@@ -80,7 +83,7 @@ export async function seedWorkspaces(): Promise<Seed> {
       }),
       stateSecret: () => 'test-state-secret',
     },
-    fetchFor: () => mockPlatform.fetch,
+    fetchFor: (platform) => (platform === 'KEITARO' ? keitaroDouble.fetch : mockPlatform.fetch),
     appUrl: 'http://localhost:3000',
     httpRetry: { baseMs: 1, capMs: 2, maxAttempts: 1 },
   };
@@ -129,6 +132,7 @@ export async function seedWorkspaces(): Promise<Seed> {
     jobs,
     sync,
     mockPlatform,
+    keitaroDouble,
     users: { alice, bob, carol },
     acme,
     globex,

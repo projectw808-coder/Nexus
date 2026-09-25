@@ -14,7 +14,13 @@ import {
   setConnectionStatus,
   updateConnectionSettings,
 } from '@nexus/db';
-import { buildAuthCtx, enqueueBackfill, enqueueDelta, startOauth } from '@nexus/sync';
+import {
+  buildAuthCtx,
+  connectApiKeyPlatform,
+  enqueueBackfill,
+  enqueueDelta,
+  startOauth,
+} from '@nexus/sync';
 import { z } from 'zod';
 import { connection as connectionSubject } from '../abilities';
 import { authorize, router, tenantProcedure } from '../trpc';
@@ -94,6 +100,44 @@ export const connectionRouter = router({
           platform: input.platform,
         }).authorizeUrl,
       };
+    }),
+
+  /**
+   * Connect an `api_key` platform (Keitaro, §8.6): no redirect — the base URL and key are
+   * submitted directly. Returns the postback URL to paste into the tracker's admin panel.
+   */
+  connectApiKey: tenantProcedure
+    .use(authorize('configure', 'Connection'))
+    .input(
+      z.object({
+        platform: z.enum(PLATFORMS),
+        apiKey: z.string().min(1),
+        baseUrl: z.url(),
+        caCertPem: z.string().optional(),
+        clientLimiter: z
+          .object({
+            requestsPerSecond: z.number().positive(),
+            maxConcurrent: z.number().int().positive(),
+          })
+          .optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const result = await connectApiKeyPlatform(ctx.sync, ctx.db, {
+        actor: ctx.actor,
+        platform: input.platform,
+        apiKey: input.apiKey,
+        baseUrl: input.baseUrl,
+        caCertPem: input.caCertPem,
+        clientLimiter: input.clientLimiter,
+      });
+      await ctx.audit({
+        action: result.created ? 'connection.created' : 'connection.reconnected',
+        targetType: 'Connection',
+        targetId: result.connectionId,
+        diff: { platform: input.platform, authKind: 'api_key' },
+      });
+      return result;
     }),
 
   updateSettings: tenantProcedure

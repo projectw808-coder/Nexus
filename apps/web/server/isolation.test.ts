@@ -417,6 +417,14 @@ const FIXTURES: Record<string, Fixture> = {
     crossInput: (ids) => ({ id: ids.connectionId }),
   },
   'connection.connectUrl': { tier: 'tenant', input: () => ({ platform: 'MOCK' }) },
+  'connection.connectApiKey': {
+    tier: 'tenant',
+    input: () => ({
+      platform: 'KEITARO',
+      apiKey: 'test-keitaro-key',
+      baseUrl: 'https://tracker.acme.test',
+    }),
+  },
   'connection.updateSettings': {
     tier: 'tenant',
     input: (ids) => ({ id: ids.connectionId, settings: { backfillDays: 30 } }),

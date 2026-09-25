@@ -9,15 +9,18 @@ import { isoOf } from '@/lib/format';
 import { platformName } from '@/lib/platforms';
 import { canManage } from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
+import { KeitaroConnectForm } from './keitaro-connect-form';
 
 export const dynamic = 'force-dynamic';
 
-const CONNECTABLE = ['FACEBOOK', 'MOCK'] as const;
+/** OAuth-redirect platforms; `connectUrl` degrades to "not configured" for any not yet registered. */
+const CONNECTABLE = ['FACEBOOK', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'MOCK'] as const;
 
 /**
  * Connections (Phase 7 minimum for the §15 e2e path; the full integrations hub with the
  * connection grid, health console and quota simulator is Phase 9): what is connected, its
- * status and last sync, and a way to connect a platform the app has credentials for.
+ * status and last sync, and a way to connect a platform the app has credentials for. Keitaro
+ * (`authKind: 'api_key'`, §8.6) has no redirect, so it gets its own form instead of a link.
  */
 export default async function IntegrationsPage({
   params,
@@ -135,21 +138,24 @@ export default async function IntegrationsPage({
           Add a connection
         </h2>
         {manages ? (
-          <ul className="flex flex-wrap gap-2">
-            {connectUrls.map((c) => (
-              <li key={c.platform}>
-                {c.url ? (
-                  <LinkButton href={c.url} variant="secondary" size="md" prefetch={false}>
-                    Connect {platformName(c.platform)}
-                  </LinkButton>
-                ) : (
-                  <span className="text-[var(--text-sm)] text-ink-muted">
-                    {platformName(c.platform)}: not configured on this server
-                  </span>
-                )}
-              </li>
-            ))}
-          </ul>
+          <div className="flex flex-col gap-4">
+            <ul className="flex flex-wrap gap-2">
+              {connectUrls.map((c) => (
+                <li key={c.platform}>
+                  {c.url ? (
+                    <LinkButton href={c.url} variant="secondary" size="md" prefetch={false}>
+                      Connect {platformName(c.platform)}
+                    </LinkButton>
+                  ) : (
+                    <span className="text-[var(--text-sm)] text-ink-muted">
+                      {platformName(c.platform)}: not configured on this server
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <KeitaroConnectForm />
+          </div>
         ) : (
           <p className="text-[var(--text-sm)] text-ink-muted">
             Owners and admins connect platforms. The full integrations hub (health console, quota
