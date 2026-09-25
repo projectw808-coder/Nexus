@@ -52,6 +52,7 @@ docs/            ARCHITECTURE, PROGRESS, ADRs, connector capability sheets
 pnpm check     # typecheck + lint + test across the workspace
 pnpm --filter @nexus/web e2e   # Playwright: builds nothing, needs `pnpm --filter @nexus/web build` first
 pnpm db:drift  # migration drift gate (needs SHADOW_DATABASE_URL)
+pnpm nexus     # operator CLI: replay, dlq list|replay, sync, sweep-tokens, new-connector <name>
 ```
 
 CI runs the same gates in `.github/workflows/ci.yml`.

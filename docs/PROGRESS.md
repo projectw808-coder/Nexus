@@ -207,7 +207,7 @@ What was built:
 cross-device sync of grid layout (ADR-011 names the path) · group aggregates over the whole
 table rather than loaded rows (needs a server-side group query; the UI labels the scope).
 
-## Phase 4 — Connector SDK
+## Phase 4 — Connector SDK ✅ built
 
 The SPI, OAuth helpers (code + PKCE + refresh), `TokenVault` with envelope encryption, the
 four-shape rate limiter with reserve/settle and priority lanes, circuit breaker, cursor store,
@@ -215,10 +215,61 @@ four-shape rate limiter with reserve/settle and priority lanes, circuit breaker,
 framework, DLQ + replay CLI, the contract test suite, `new-connector` generator, and a mock
 platform (configurable latency, 429s, 5xx, schema drift and dropped webhooks) used by all tests.
 
-- [ ] a mock connector backfills 50k objects
-- [ ] resumes after a worker kill
-- [ ] survives 30% injected 429/5xx without data loss
-- [ ] replaying every webhook 3× produces zero duplicates
+- [x] a mock connector backfills 50k objects — `packages/sync/src/engine.test.ts` connects the
+      mock platform through the real OAuth flow (PKCE, signed state, vaulted token) and backfills
+      one account: 50,000 objects persisted raw, all 50,000 normalized through the sink, zero
+      quarantined, zero dead letters. On the build machine (PGlite, inline bus, kill included):
+      50,000 objects in 21.5 s, about 139,000 objects/minute, 104 platform calls of 500 items.
+- [x] resumes after a worker kill — the same test aborts the first worker from inside the
+      request path after a dozen pages (14,500 objects committed), starts a second worker with
+      a fresh bus and limiter, and finishes from the saved cursors: every run is CANCELLED or
+      SUCCEEDED, the second worker makes fewer than one page's worth of extra calls, and rows
+      whose normalize job died with the first worker's queue are re-queued by the
+      pending-normalization sweep.
+- [x] survives 30% injected 429/5xx without data loss — 6,000 objects with 15% 429 (with
+      `Retry-After`) and 15% 503 injected per request: all 6,000 persisted and normalized, no dead
+      letters, failed runs recorded with their taxonomy code and remediation, the connection
+      dips to DEGRADED and recovers to CONNECTED.
+- [x] replaying every webhook 3× produces zero duplicates — 200 new comments announced by
+      signed webhooks, each delivered three times (600 `WebhookEvent` rows, all verified and
+      processed): exactly 200 new `ExternalObject` rows and no duplicate entities; a poll that
+      returns the same comments afterwards changes nothing. Tampered, unsigned and
+      unknown-platform payloads get 401/404 and are logged unverified.
+
+What was built:
+
+- `@nexus/connector-sdk` runtime: envelope encryption + `KeyProvider` (ADR-014), OAuth helpers
+  (PKCE, HMAC-signed state, code exchange, refresh, revoke, 70% refresh math), the four-shape
+  `RateLimiter` over a `BudgetStore` (memory + Redis CAS) with lane fractions, observed
+  headers, the 24h dedup ledger and the circuit breaker, the injected `HttpClient` (retries
+  with full jitter, `Retry-After`, breaker, status classification, served-version check),
+  webhook verification primitives (HMAC-SHA256, shared secret, RS256 JWT), the quota
+  simulator, test doubles (`@nexus/connector-sdk/testing`) and the contract suite
+  (`@nexus/connector-sdk/contract`). 79 unit tests.
+- `@nexus/connector-mock`: the mock platform (in-process `fetch` or HTTP, seeded data, real
+  rate-limit headers, fault injection) and the reference connector; 23 tests including the
+  contract suite and golden normalize snapshots. `docs/connectors/mock.md`.
+- `@nexus/db`: `WorkspaceKey`, `VaultEntry`, `DeadLetter` models with RLS; the vault; raw
+  store with content-hash idempotency; cursor, run, webhook-event, dead-letter and
+  integration-error stores; connection lifecycle helpers.
+- `@nexus/sync` (ADR-013): inline job bus with the §9.2 retry policy, connector registry,
+  stages 1–3 with the sink seam for 4–7, webhook intake and processing, failure → behaviour
+  mapping, replay (per connection and per dead letter), poll planner, token sweep, OAuth
+  connect flow with audit, `createSyncDeps` from the environment.
+- Hosts: worker BullMQ bus and pipeline workers with schedulers (poll plan every 5 min, token
+  sweep hourly, recovery at boot); web `/api/webhooks/:platform[/:connectionId]`,
+  `/api/connect/:platform/start|callback`, the `connection` tRPC router (13 procedures, all in
+  the generated isolation suite) and inline engine fallback without Redis.
+- `pnpm nexus replay | dlq list | dlq replay | sync | sweep-tokens | new-connector`. The
+  generator scaffolds a package that typechecks, lints and passes the contract suite before any
+  platform detail is filled in (verified by generating `demo-social` and running it).
+
+**Deferred:** stages 4–7 (identity resolution, materialization, automation, notification) sit
+behind the sink seam and arrive with Phases 6, 9 and 10 · the cloud KMS `KeyProvider` (Phase 11
+deploy; `local:*` is refused outside dev/test) · e-mailing the connection owner on
+RECONNECT_REQUIRED (the `Notifier` logs today; the health console wires mail in Phase 9) ·
+the outbound `OutboundAction` queue (`execute`/`preflight` are implemented on the SPI and the
+mock; the send flow lands with the inbox in Phase 7) · the integrations hub UI (Phase 9).
 
 ## Phase 5 — Meta (Facebook + Instagram)
 
