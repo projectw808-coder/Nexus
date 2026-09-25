@@ -6,7 +6,13 @@
  */
 import { loadEnv, QUEUE_PREFIX, QUEUES, type QueueName } from '@nexus/config';
 import { LANE_PRIORITY } from '@nexus/connector-sdk';
-import { listSchedulableConnections, cancelStaleRuns, systemActorFor, runtime } from '@nexus/db';
+import {
+  listSchedulableConnections,
+  cancelStaleRuns,
+  sweepSnoozed,
+  systemActorFor,
+  runtime,
+} from '@nexus/db';
 import {
   createSyncDeps,
   deadLetterJob,
@@ -45,6 +51,7 @@ export const SYNC_SYSTEM_JOBS = {
   recover: 'sync.recover',
   metaVersion: 'meta.version_monitor',
   identityRescore: 'identity.rescore',
+  unsnooze: 'inbox.unsnooze',
 } as const;
 
 export type SyncHost = {
@@ -146,6 +153,12 @@ export function startSyncHost(opts: { redis: IORedis; log: Logger }): SyncHost {
         { every: 60 * 60_000 },
         { name: SYNC_SYSTEM_JOBS.tokenSweep, data: {} },
       );
+      // Snoozed conversations come back every minute (§12.2.A).
+      await system.upsertJobScheduler(
+        SYNC_SYSTEM_JOBS.unsnooze,
+        { every: 60_000 },
+        { name: SYNC_SYSTEM_JOBS.unsnooze, data: {} },
+      );
       // Nightly identity re-score (§10): open suggestions, unresolved identities, duplicate scan.
       await system.upsertJobScheduler(
         SYNC_SYSTEM_JOBS.identityRescore,
@@ -214,6 +227,11 @@ export async function handleSyncSystemJob(
         feedUrl: loadEnv().META_VERSIONS_FEED_URL ?? null,
       });
       log.info(result, 'Meta version monitor finished');
+      return result;
+    }
+    case SYNC_SYSTEM_JOBS.unsnooze: {
+      const result = await sweepSnoozed(runtime);
+      if (result.reopened) log.info(result, 'snoozed conversations reopened');
       return result;
     }
     case SYNC_SYSTEM_JOBS.identityRescore: {
