@@ -24,3 +24,18 @@ export const PLATFORMS = [
 export type Platform = (typeof PLATFORMS)[number];
 
 export const platformSchema = z.enum(PLATFORMS);
+
+/** Display names for connection labels and the UI. */
+export const PLATFORM_LABELS: Readonly<Record<Platform, string>> = {
+  FACEBOOK: 'Facebook',
+  INSTAGRAM: 'Instagram',
+  X: 'X',
+  LINKEDIN: 'LinkedIn',
+  TIKTOK: 'TikTok',
+  YOUTUBE: 'YouTube',
+  GMAIL: 'Gmail',
+  GOOGLE_CALENDAR: 'Google Calendar',
+  GOOGLE_BUSINESS: 'Google Business Profile',
+  KEITARO: 'Keitaro',
+  MOCK: 'Mock Platform',
+};

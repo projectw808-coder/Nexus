@@ -6,7 +6,7 @@
  * `@nexus/connector-sdk/contract` and test doubles from `@nexus/connector-sdk/testing`.
  */
 
-export { PLATFORMS, platformSchema, type Platform } from './platform.ts';
+export { PLATFORMS, PLATFORM_LABELS, platformSchema, type Platform } from './platform.ts';
 
 export {
   CAPABILITIES,

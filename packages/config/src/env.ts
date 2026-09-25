@@ -70,6 +70,12 @@ export const envSchema = z.object({
   META_APP_ID: optional,
   META_APP_SECRET: optional,
   META_WEBHOOK_VERIFY_TOKEN: optional,
+  /** Facebook Login for Business configuration id (optional). */
+  META_LOGIN_CONFIG_ID: optional,
+  /** Override the Graph origin (the Graph double in local/e2e); production leaves it unset. */
+  META_GRAPH_ORIGIN: optional,
+  /** Optional JSON mirror of Meta's version schedule for the drift monitor (ADR-016). */
+  META_VERSIONS_FEED_URL: optional,
   META_API_VERSION: z
     .string()
     .regex(/^v\d+\.\d+$/)

@@ -236,6 +236,11 @@ export const discoveredAccountSchema = z.object({
   /** Parent account when nested (IG account → linked Page). */
   parentExternalId: z.string().nullable(),
   raw: z.unknown(),
+  /**
+   * Account-scoped credential when `hasOwnToken` (a Meta Page token). Core vaults it as the
+   * connection's token instead of the user token; never logged, never persisted elsewhere.
+   */
+  token: tokenSetSchema.optional(),
 });
 
 export type DiscoveredAccount = z.infer<typeof discoveredAccountSchema>;
@@ -350,6 +355,14 @@ export const outboundActionInputSchema = z.object({
   /** Minted client-side per user intent; replayed on retry so a double-submit collapses to one send. */
   requestNonce: z.string().min(1),
   requestedByUserId: z.string().min(1),
+  /** Facts core knows about the thread, for `preflight()` rules such as messaging windows. */
+  context: z
+    .object({
+      /** When the customer last wrote to us in this thread. */
+      lastInboundAt: z.coerce.date().nullable().optional(),
+      conversationKind: z.string().optional(),
+    })
+    .optional(),
 });
 
 export type OutboundActionInput = z.infer<typeof outboundActionInputSchema>;

@@ -104,6 +104,7 @@ export const mockManifest: ConnectorManifest = connectorManifestSchema.parse({
   },
   constraints: ['Pages are at most 500 items.', 'Replies need the write:reply_comment scope.'],
   tierNotes: 'No tiers — the mock serves 1,000 calls per 15 minutes per token.',
+  apiVersionHeader: 'x-mock-api-version',
 } satisfies ConnectorManifest);
 
 // ─── raw shapes (strict: anything else is schema drift) ────────────────────

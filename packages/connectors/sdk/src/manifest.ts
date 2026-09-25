@@ -95,6 +95,10 @@ export const connectorManifestSchema = z
     constraints: z.array(z.string()),
     /** What the customer's API plan / app-review status must be. */
     tierNotes: z.string(),
+    /** Response header the platform echoes its API version in, for the served-version drift check (§8.1). */
+    apiVersionHeader: z.string().min(1).optional(),
+    /** Messaging-window rule enforced in `preflight()` (Meta: 24 hours after the customer's last message). */
+    messagingWindowHours: z.number().positive().optional(),
   })
   .superRefine((m, ctx) => {
     const resourceIds = new Set<string>();
