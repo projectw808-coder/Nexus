@@ -40,6 +40,9 @@ export type SubjectName =
   | 'Conversation'
   | 'Note'
   | 'Task'
+  | 'Identity'
+  | 'MergeSuggestion'
+  | 'RecordMerge'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -78,6 +81,8 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         ['Record', 'List', 'ListEntry', 'Conversation', 'ImportJob', 'Note', 'Task'],
       );
       can(['create', 'update', 'delete'], 'SavedView');
+      // Managers resolve identities, review the merge queue and merge/unmerge records.
+      can(['update', 'delete'], ['Identity', 'MergeSuggestion', 'RecordMerge']);
       cannot('read', ['ApiKey', 'ConnectionGrant']);
       break;
     case 'MEMBER':
@@ -94,9 +99,14 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'Connection',
         'Note',
         'Task',
+        'Identity',
+        'MergeSuggestion',
+        'RecordMerge',
       ]);
       can(['create', 'update'], ['Record', 'Conversation', 'ListEntry', 'Note', 'Task']);
       can('delete', 'Task');
+      // Members may say "this handle is that person" — a confirmed, audited link.
+      can('update', 'Identity');
       can('export', 'Record');
       can(['create', 'update', 'delete'], 'SavedView');
       break;
@@ -114,6 +124,9 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'Connection',
         'Note',
         'Task',
+        'Identity',
+        'MergeSuggestion',
+        'RecordMerge',
       ]);
       break;
   }

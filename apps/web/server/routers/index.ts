@@ -3,6 +3,9 @@ import { auditRouter } from './audit';
 import { connectionRouter } from './connections';
 import { conversationRouter } from './conversations';
 import { exportRouter } from './export';
+import { identityRouter } from './identities';
+import { mergeSuggestionRouter } from './merge-suggestions';
+import { timelineRouter } from './timeline';
 import { importRouter } from './imports';
 import { invitationRouter } from './invitation';
 import { listEntryRouter, listRouter } from './lists';
@@ -42,6 +45,10 @@ export const appRouter = router({
   connection: connectionRouter,
   // Phase 5 — conversations (bare inbox)
   conversation: conversationRouter,
+  // Phase 6 — identity resolution and the unified timeline
+  identity: identityRouter,
+  mergeSuggestion: mergeSuggestionRouter,
+  timeline: timelineRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -55,6 +55,12 @@ const Icon = {
       <path d="M7 3v4M13 3v4M5 7h10v3a5 5 0 0 1-10 0zM10 15v2" />
     </svg>
   ),
+  duplicates: (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" {...stroke}>
+      <circle cx="7.5" cy="10" r="4.5" />
+      <circle cx="12.5" cy="10" r="4.5" />
+    </svg>
+  ),
   settings: (
     <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" {...stroke}>
       <circle cx="10" cy="10" r="2.5" />
@@ -70,6 +76,7 @@ function itemsFor(slug: string): RailItem[] {
     { kind: 'link', label: 'Inbox', href: `${base}/inbox`, icon: Icon.inbox },
     { kind: 'link', label: 'Records', href: `${base}/records`, icon: Icon.records },
     { kind: 'link', label: 'Lists', href: `${base}/lists`, icon: Icon.lists },
+    { kind: 'link', label: 'Duplicates', href: `${base}/duplicates`, icon: Icon.duplicates },
     { kind: 'planned', label: 'Reports', phase: 11, icon: Icon.reports },
     { kind: 'planned', label: 'Automations', phase: 10, icon: Icon.automations },
     { kind: 'planned', label: 'Integrations', phase: 9, icon: Icon.integrations },

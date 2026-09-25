@@ -12,7 +12,14 @@
 import { toCsv } from '@nexus/core';
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { recordDeadLetter, recordIntegrationError, upsertConnection } from '@nexus/db';
+import {
+  linkIdentity,
+  mergeRecords,
+  recordDeadLetter,
+  recordIntegrationError,
+  upsertConnection,
+  upsertIdentity,
+} from '@nexus/db';
 import { NexusError } from '@nexus/core';
 import { callPath, procedureManifest, seedWorkspaces, type Seed } from './testing';
 
@@ -51,6 +58,14 @@ type Ids = {
   integrationErrorId: string;
   deadLetterId: string;
   conversationId: string;
+  // Phase 6
+  identityId: string;
+  unresolvedIdentityId: string;
+  suggestionId: string;
+  mergeId: string;
+  person2Id: string;
+  company2Id: string;
+  deal2Id: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -467,6 +482,104 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.conversationId }),
     crossInput: (ids) => ({ id: ids.conversationId }),
   },
+  // Phase 6 — identity resolution and the unified timeline
+  'timeline.list': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.personId }),
+    crossInput: (ids) => ({ recordId: ids.personId }),
+  },
+  'identity.list': { tier: 'tenant', input: () => ({ unresolved: true }) },
+  'identity.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.identityId }),
+    crossInput: (ids) => ({ id: ids.identityId }),
+  },
+  'identity.candidates': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.unresolvedIdentityId }),
+    crossInput: (ids) => ({ id: ids.unresolvedIdentityId }),
+  },
+  'identity.link': {
+    tier: 'tenant',
+    input: (ids) => ({ identityId: ids.unresolvedIdentityId, personRecordId: ids.personId }),
+    crossInput: (ids) => ({ identityId: ids.unresolvedIdentityId, personRecordId: ids.personId }),
+  },
+  'identity.unlink': {
+    tier: 'tenant',
+    input: (ids) => ({ identityId: ids.identityId }),
+    crossInput: (ids) => ({ identityId: ids.identityId }),
+  },
+  'identity.createPerson': {
+    tier: 'tenant',
+    input: (ids) => ({ identityId: ids.unresolvedIdentityId }),
+    crossInput: (ids) => ({ identityId: ids.unresolvedIdentityId }),
+  },
+  'identity.resolve': {
+    tier: 'tenant',
+    input: (ids) => ({ identityId: ids.unresolvedIdentityId }),
+    crossInput: (ids) => ({ identityId: ids.unresolvedIdentityId }),
+  },
+  'mergeSuggestion.list': { tier: 'tenant', input: () => undefined },
+  'mergeSuggestion.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.suggestionId }),
+    crossInput: (ids) => ({ id: ids.suggestionId }),
+  },
+  'mergeSuggestion.accept': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.suggestionId }),
+    crossInput: (ids) => ({ id: ids.suggestionId }),
+  },
+  'mergeSuggestion.reject': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.suggestionId, reason: 'different people' }),
+    crossInput: (ids) => ({ id: ids.suggestionId }),
+  },
+  'mergeSuggestion.rescore': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.suggestionId }),
+    crossInput: (ids) => ({ id: ids.suggestionId }),
+  },
+  'record.merge': {
+    tier: 'tenant',
+    input: (ids) => ({ winnerId: ids.recordId, loserId: ids.spareRecordId }),
+    crossInput: (ids) => ({ winnerId: ids.recordId, loserId: ids.spareRecordId }),
+  },
+  'record.unmerge': {
+    tier: 'tenant',
+    input: (ids) => ({ mergeId: ids.mergeId }),
+    crossInput: (ids) => ({ mergeId: ids.mergeId }),
+  },
+  'person.merge': {
+    tier: 'tenant',
+    input: (ids) => ({ winnerId: ids.personId, loserId: ids.person2Id }),
+    crossInput: (ids) => ({ winnerId: ids.personId, loserId: ids.person2Id }),
+  },
+  'person.unmerge': {
+    tier: 'tenant',
+    input: (ids) => ({ mergeId: ids.mergeId }),
+    crossInput: (ids) => ({ mergeId: ids.mergeId }),
+  },
+  'company.merge': {
+    tier: 'tenant',
+    input: (ids) => ({ winnerId: ids.companyId, loserId: ids.company2Id }),
+    crossInput: (ids) => ({ winnerId: ids.companyId, loserId: ids.company2Id }),
+  },
+  'company.unmerge': {
+    tier: 'tenant',
+    input: (ids) => ({ mergeId: ids.mergeId }),
+    crossInput: (ids) => ({ mergeId: ids.mergeId }),
+  },
+  'deal.merge': {
+    tier: 'tenant',
+    input: (ids) => ({ winnerId: ids.dealId, loserId: ids.deal2Id }),
+    crossInput: (ids) => ({ winnerId: ids.dealId, loserId: ids.deal2Id }),
+  },
+  'deal.unmerge': {
+    tier: 'tenant',
+    input: (ids) => ({ mergeId: ids.mergeId }),
+    crossInput: (ids) => ({ mergeId: ids.mergeId }),
+  },
   'connection.disconnect': {
     tier: 'tenant',
     input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
@@ -624,7 +737,72 @@ async function freshIds(): Promise<Ids> {
       return { id: c.id, errorId: err.id, deadLetterId: dl.id, conversationId: conversation.id };
     },
   );
+  // Phase 6 rows: a linked identity, an unresolved one with a pending suggestion, a merge to undo.
+  const person2 = await owner.person.create({ values: { name: 'Pat Two' } });
+  const company2 = await owner.company.create({ values: { name: 'Acme Two' } });
+  const deal2 = await owner.deal.create({ values: { name: 'Deal Two' } });
+  const w1 = await owner.record.create({
+    objectType: 'widget',
+    values: { name: `mw ${Date.now()}` },
+  });
+  const w2 = await owner.record.create({
+    objectType: 'widget',
+    values: { name: `ml ${Date.now()}` },
+  });
+  const p6 = await seed.db.runtime.withTenant(
+    seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+    async (db) => {
+      const actor = seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER');
+      const stamp = `${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
+      const linked = await upsertIdentity(db, {
+        workspaceId: seed.acme.id,
+        platform: 'INSTAGRAM',
+        externalId: `ig_${stamp}`,
+        seenAt: new Date(),
+        handle: `pat_${stamp}`,
+        displayName: 'Pat',
+      });
+      await linkIdentity(db, actor, {
+        identityId: linked.id,
+        personRecordId: person.id,
+        method: 'MANUAL',
+        confidence: 1,
+        evidence: { score: 1, signals: [], note: 'seed' },
+        confirmed: true,
+      });
+      const unresolved = await upsertIdentity(db, {
+        workspaceId: seed.acme.id,
+        platform: 'X',
+        externalId: `x_${stamp}`,
+        seenAt: new Date(),
+        handle: `pat_x_${stamp}`,
+        displayName: 'Pat',
+      });
+      const suggestion = await db.mergeSuggestion.create({
+        data: {
+          workspaceId: seed.acme.id,
+          identityId: unresolved.id,
+          rightRecordId: person.id,
+          score: 0.4,
+          signals: { score: 0.4, method: 'NAME_FUZZY', signals: [] },
+          status: 'PENDING',
+        },
+        select: { id: true },
+      });
+      const merge = await mergeRecords(db, actor, { winnerId: w1.id, loserId: w2.id });
+      return {
+        identityId: linked.id,
+        unresolvedIdentityId: unresolved.id,
+        suggestionId: suggestion.id,
+        mergeId: merge.mergeId,
+      };
+    },
+  );
   return {
+    ...p6,
+    person2Id: person2.id,
+    company2Id: company2.id,
+    deal2Id: deal2.id,
     connectionId: conn.id,
     connectionLabel,
     integrationErrorId: conn.errorId,

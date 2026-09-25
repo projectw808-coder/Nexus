@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ActionButton } from '@/components/action-button';
 import { AttributePanel } from '@/components/record/attribute-panel';
+import { IdentitiesPanel } from '@/components/record/identities-panel';
+import { IdentityChips } from '@/components/record/identity-chips';
+import { MergePanel } from '@/components/record/merge-panel';
+import { TimelinePanel } from '@/components/record/timeline-panel';
 import { NotesPanel } from '@/components/record/notes-panel';
 import { TasksPanel } from '@/components/record/tasks-panel';
 import { LinkButton } from '@/components/button';
@@ -14,7 +18,7 @@ import { StatusPill } from '@/components/status-pill';
 import { api } from '@/lib/api';
 import { isCode } from '@/lib/errors';
 import { isoOf } from '@/lib/format';
-import { canDeleteRecords, canWriteRecords } from '@/lib/roles';
+import { canDeleteRecords, canLinkIdentities, canReviewMerges, canWriteRecords } from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
 import { deleteRecordAction, restoreRecordAction } from '../actions';
 
@@ -51,7 +55,9 @@ export default async function RecordDetailPage({
   const objectSlugById = Object.fromEntries(objectTypes.map((o) => [o.id, o.apiSlug]));
   const attrs = [...rec.attributes].sort((a, b) => a.position - b.position);
   const deleted = rec.deletedAt !== null;
-  const writes = canWriteRecords(workspace.role) && !deleted;
+  const mergedAway = rec.mergeState === 'MERGED';
+  const isPerson = rec.objectType.apiSlug === 'person';
+  const writes = canWriteRecords(workspace.role) && !deleted && !mergedAway;
   const deletes = canDeleteRecords(workspace.role);
 
   return (
@@ -67,6 +73,7 @@ export default async function RecordDetailPage({
           <span className="flex flex-wrap items-center gap-3">
             {rec.label}
             {deleted ? <StatusPill tone="warning">Deleted</StatusPill> : null}
+            {mergedAway ? <StatusPill tone="neutral">Merged</StatusPill> : null}
           </span>
         }
         description={
@@ -78,6 +85,11 @@ export default async function RecordDetailPage({
               Updated <LocalDateTime iso={isoOf(rec.updatedAt) ?? ''} />
             </span>
             <span className="font-mono text-[var(--text-xs)] text-ink-muted">{rec.id}</span>
+            {rec.identities.length > 0 ? (
+              <span className="basis-full pt-1">
+                <IdentityChips slug={workspace.slug} identities={rec.identities} />
+              </span>
+            ) : null}
           </span>
         }
         actions={
@@ -133,7 +145,26 @@ export default async function RecordDetailPage({
         </div>
       ) : null}
 
-      {!writes && !deleted ? (
+      {mergedAway && rec.mergedInto ? (
+        <div
+          role="status"
+          data-testid="merged-banner"
+          className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius-card)] border border-hairline bg-card px-4 py-3"
+        >
+          <p className="text-[var(--text-sm)] text-ink-secondary">
+            This {rec.objectType.singular.toLowerCase()} was merged into{' '}
+            <Link
+              href={`${base}/${rec.mergedInto.id}`}
+              className="font-medium text-link underline-offset-2 hover:underline"
+            >
+              {rec.mergedInto.label}
+            </Link>
+            . It is kept as it was so the merge can be undone from the survivor.
+          </p>
+        </div>
+      ) : null}
+
+      {!writes && !deleted && !mergedAway ? (
         <PermissionNote>Your role can read this record but not change it.</PermissionNote>
       ) : null}
 
@@ -154,6 +185,7 @@ export default async function RecordDetailPage({
             attributes={attrs}
             initialValues={rec.values}
             canEdit={writes}
+            alternates={rec.alternates}
           />
         )}
       </section>
@@ -242,16 +274,25 @@ export default async function RecordDetailPage({
         <TasksPanel recordId={rec.id} canWrite={writes} />
       </div>
 
-      <section aria-labelledby="timeline-heading" className="flex flex-col gap-3">
-        <h2 id="timeline-heading" className="text-[var(--text-md)] font-semibold tracking-tight">
-          Timeline
-        </h2>
-        <EmptyState
-          compact
-          title="No channel activity yet"
-          description="Messages, comments, mentions and attribution land here once platforms are connected (Phase 6)."
+      {isPerson ? (
+        <IdentitiesPanel
+          slug={workspace.slug}
+          recordId={rec.id}
+          canLink={canLinkIdentities(workspace.role) && !mergedAway && !deleted}
         />
-      </section>
+      ) : null}
+
+      <MergePanel
+        slug={workspace.slug}
+        objectSlug={object}
+        recordId={rec.id}
+        recordLabel={rec.label}
+        merges={rec.merges}
+        canMerge={canReviewMerges(workspace.role) && !deleted}
+        isMergedAway={mergedAway}
+      />
+
+      <TimelinePanel slug={workspace.slug} recordId={rec.id} />
     </div>
   );
 }

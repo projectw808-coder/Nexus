@@ -61,3 +61,11 @@ export const canManageLists = canDeleteRecords;
 export function canExport(role: Role): boolean {
   return role !== 'VIEWER';
 }
+
+// ── Phase 6: identity resolution ─────────────────────────────────────────────
+
+/** Owners, admins and managers review the merge queue and merge/unmerge records. */
+export const canReviewMerges = canDeleteRecords;
+
+/** Everyone but viewers may link a channel identity to a person (a confirmed, audited link). */
+export const canLinkIdentities = canWriteRecords;

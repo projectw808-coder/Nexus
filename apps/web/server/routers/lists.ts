@@ -8,6 +8,7 @@ import {
   stagesOf,
   updateEntryValues,
   type Prisma,
+  emitTimelineEvent,
 } from '@nexus/db';
 import { z } from 'zod';
 import { attributesFor, recordLabel, resolveObjectType } from '../objects-helpers';
@@ -276,6 +277,28 @@ export const listEntryRouter = router({
         select: { stage: true },
       });
       const e = await moveEntry(ctx.db, ctx.actor, input);
+      if (input.stage !== undefined && (before?.stage ?? null) !== e.stage) {
+        const entry = await ctx.db.listEntry.findFirst({
+          where: { id: e.id },
+          select: { recordId: true, list: { select: { id: true, name: true, kind: true } } },
+        });
+        if (entry)
+          await emitTimelineEvent(ctx.db, {
+            workspaceId: ctx.workspace.id,
+            dedupeKey: `stage:${e.id}:${Date.now()}`,
+            type: 'STAGE_CHANGE',
+            occurredAt: new Date(),
+            recordId: entry.recordId,
+            actorUserId: ctx.session.id,
+            summary: `Moved to “${e.stage ?? 'no stage'}” in ${entry.list.name}`,
+            payload: {
+              kind: 'stage_change',
+              listId: entry.list.id,
+              from: before?.stage ?? null,
+              to: e.stage,
+            },
+          });
+      }
       await ctx.audit({
         action: 'list_entry.moved',
         targetType: 'ListEntry',

@@ -13,6 +13,7 @@ import {
   handleJob,
   planDeltaPolls,
   requeuePendingNormalization,
+  runIdentityRescore,
   runMetaVersionMonitor,
   sdkLoggerFrom,
   sweepTokens,
@@ -43,6 +44,7 @@ export const SYNC_SYSTEM_JOBS = {
   tokenSweep: 'token.sweep',
   recover: 'sync.recover',
   metaVersion: 'meta.version_monitor',
+  identityRescore: 'identity.rescore',
 } as const;
 
 export type SyncHost = {
@@ -144,6 +146,12 @@ export function startSyncHost(opts: { redis: IORedis; log: Logger }): SyncHost {
         { every: 60 * 60_000 },
         { name: SYNC_SYSTEM_JOBS.tokenSweep, data: {} },
       );
+      // Nightly identity re-score (§10): open suggestions, unresolved identities, duplicate scan.
+      await system.upsertJobScheduler(
+        SYNC_SYSTEM_JOBS.identityRescore,
+        { every: 24 * 60 * 60_000 },
+        { name: SYNC_SYSTEM_JOBS.identityRescore, data: {} },
+      );
       await system.upsertJobScheduler(
         SYNC_SYSTEM_JOBS.metaVersion,
         { every: 7 * 24 * 60 * 60_000 },
@@ -206,6 +214,11 @@ export async function handleSyncSystemJob(
         feedUrl: loadEnv().META_VERSIONS_FEED_URL ?? null,
       });
       log.info(result, 'Meta version monitor finished');
+      return result;
+    }
+    case SYNC_SYSTEM_JOBS.identityRescore: {
+      const result = await runIdentityRescore(deps);
+      log.info(result, 'identity re-score finished');
       return result;
     }
     case SYNC_SYSTEM_JOBS.tokenSweep: {

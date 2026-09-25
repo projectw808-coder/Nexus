@@ -17,12 +17,15 @@ export function AttributePanel({
   attributes,
   initialValues,
   canEdit,
+  alternates = {},
 }: {
   slug: string;
   recordId: string;
   attributes: AttributeLike[];
   initialValues: Record<string, unknown>;
   canEdit: boolean;
+  /** Values kept by merges (ADR-002), per attribute id — shown in the history popover. */
+  alternates?: Record<string, Alternate[]>;
 }) {
   const trpc = useTRPC();
   const [values, setValues] = useState(initialValues);
@@ -90,7 +93,11 @@ export function AttributePanel({
                     </span>
                   )}
                 </div>
-                <HistoryPopover recordId={recordId} attribute={a} />
+                <HistoryPopover
+                  recordId={recordId}
+                  attribute={a}
+                  alternates={alternates[a.id] ?? []}
+                />
               </dd>
             </div>
           );
@@ -100,7 +107,22 @@ export function AttributePanel({
   );
 }
 
-function HistoryPopover({ recordId, attribute }: { recordId: string; attribute: AttributeLike }) {
+export type Alternate = {
+  value: unknown;
+  fromRecordId: string;
+  mergeId: string;
+  mergedAt: Date | string;
+};
+
+function HistoryPopover({
+  recordId,
+  attribute,
+  alternates,
+}: {
+  recordId: string;
+  attribute: AttributeLike;
+  alternates: Alternate[];
+}) {
   const trpc = useTRPC();
   const [open, setOpen] = useState(false);
   const history = useQuery({
@@ -139,9 +161,27 @@ function HistoryPopover({ recordId, attribute }: { recordId: string; attribute: 
             if (e.key === 'Escape') setOpen(false);
           }}
         >
+          {alternates.length > 0 ? (
+            <div className="mb-1 border-b border-hairline pb-1">
+              <p className="font-medium text-ink">Kept from merges</p>
+              <ul className="flex flex-col gap-0.5">
+                {alternates.map((alt) => (
+                  <li key={`${alt.mergeId}:${String(alt.value)}`} className="text-ink-secondary">
+                    {typeof alt.value === 'string' ? alt.value : JSON.stringify(alt.value)}{' '}
+                    <span className="text-ink-muted">
+                      ·{' '}
+                      {new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(
+                        new Date(alt.mergedAt),
+                      )}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
           {history.isPending ? (
             <p className="text-ink-muted">Loading…</p>
-          ) : changes.length === 0 ? (
+          ) : changes.length === 0 && alternates.length === 0 ? (
             <p className="text-ink-muted">No recorded changes.</p>
           ) : (
             <ul className="flex max-h-56 flex-col gap-1 overflow-auto">

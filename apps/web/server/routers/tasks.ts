@@ -1,4 +1,5 @@
 import { NexusError } from '@nexus/core';
+import { emitTimelineEvent } from '@nexus/db';
 import { TaskPriority, TaskStatus, diffOf } from '@nexus/db';
 import { z } from 'zod';
 import { authorize, router, tenantProcedure } from '../trpc';
@@ -78,6 +79,22 @@ export const taskRouter = router({
           createdById: ctx.session.id,
         },
       });
+      if (task.recordId)
+        await emitTimelineEvent(ctx.db, {
+          workspaceId: ctx.workspace.id,
+          dedupeKey: `task:${task.id}`,
+          type: 'TASK',
+          occurredAt: task.createdAt,
+          recordId: task.recordId,
+          actorUserId: ctx.session.id,
+          summary: `Created the task “${task.title}”${task.dueAt ? ` due ${task.dueAt.toISOString().slice(0, 10)}` : ''}`,
+          payload: {
+            kind: 'task',
+            taskId: task.id,
+            priority: task.priority,
+            assigneeId: task.assigneeId,
+          },
+        });
       await ctx.audit({
         action: 'task.created',
         targetType: 'Task',

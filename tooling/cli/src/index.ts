@@ -9,6 +9,7 @@
  *   nexus dlq replay <id> --workspace <id>
  *   nexus sync --workspace <id> --connection <id> [--resource <id>] [--backfill]
  *   nexus sweep-tokens
+ *   nexus rescore [--workspace <id>]
  *   nexus new-connector <name> [--platform <PLATFORM>] [--display "<Name>"]
  */
 import { loadEnv, QUEUES } from '@nexus/config';
@@ -23,6 +24,7 @@ import {
   handleJob,
   replayConnection,
   replayDeadLetter,
+  runIdentityRescore,
   sdkLoggerFrom,
   sweepTokens,
   type InlineBus,
@@ -161,6 +163,13 @@ export async function main(argv: string[]): Promise<number> {
       console.warn(JSON.stringify(await sweepTokens(d)));
       return 0;
     }
+    case 'rescore': {
+      const d = await deps();
+      const workspaceId =
+        typeof args.flags.workspace === 'string' ? args.flags.workspace : undefined;
+      console.warn(JSON.stringify(await runIdentityRescore(d, workspaceId ? { workspaceId } : {})));
+      return 0;
+    }
     case 'new-connector': {
       const name = sub;
       if (!name)
@@ -176,7 +185,7 @@ export async function main(argv: string[]): Promise<number> {
       return 0;
     }
     default:
-      console.error('usage: nexus replay|dlq|sync|sweep-tokens|new-connector …');
+      console.error('usage: nexus replay|dlq|sync|sweep-tokens|rescore|new-connector …');
       return 2;
   }
 }

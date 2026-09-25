@@ -1,14 +1,19 @@
 import { NexusError, recordQuerySchema } from '@nexus/core';
 import {
+  alternatesFor,
   countRecords,
   createRecord,
   diffOf,
+  emitTimelineEvent,
+  mergeRecords,
+  unmergeRecords,
   queryRecords,
   restoreRecords,
   softDeleteRecords,
   updateRecord,
 } from '@nexus/db';
 import { z } from 'zod';
+import { identitySummary, linkSummary, personLabels } from '../identity-helpers';
 import {
   attributesFor,
   publicAttributes,
@@ -80,7 +85,6 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
         const row = await ctx.db.record.findFirst({
           where: {
             id: input.id,
-            mergeState: 'ACTIVE',
             ...(fixed ? { objectType: { apiSlug: fixed } } : {}),
           },
           include: { objectType: true },
@@ -104,8 +108,67 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           values: row.values as Record<string, unknown>,
           importJobId: row.importJobId,
         });
+        // Phase 6: channel identities (chips), field alternates kept by merges, merge history.
+        const identities = await ctx.db.identity.findMany({
+          where: { personRecordId: row.id, deletedAt: null },
+          orderBy: { lastSeenAt: 'desc' },
+          include: {
+            links: {
+              where: { revokedAt: null },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              include: { confirmedBy: { select: { name: true, email: true } } },
+            },
+          },
+        });
+        const merges = await ctx.db.recordMerge.findMany({
+          where: { OR: [{ winnerId: row.id }, { loserId: row.id }] },
+          orderBy: { mergedAt: 'desc' },
+          include: {
+            mergedBy: { select: { name: true, email: true } },
+            unmergedBy: { select: { name: true, email: true } },
+          },
+        });
+        const mergeLabels = await personLabels(ctx.db, [
+          ...merges.flatMap((m) => [m.winnerId, m.loserId]),
+          ...(row.mergedIntoId ? [row.mergedIntoId] : []),
+        ]);
+        const alternates = await alternatesFor(ctx.db, row.id);
         return {
           ...record,
+          mergeState: row.mergeState,
+          mergedInto: row.mergedIntoId
+            ? {
+                id: row.mergedIntoId,
+                label: mergeLabels.get(row.mergedIntoId)?.label ?? '(record)',
+              }
+            : null,
+          identities: identities.map((i) => ({
+            ...identitySummary(i),
+            link: i.links[0] ? linkSummary(i.links[0]) : null,
+          })),
+          alternates,
+          merges: merges.map((m) => {
+            const snap = m.snapshot as {
+              fields?: unknown[];
+              identities?: unknown[];
+              timelineEvents?: unknown[];
+            };
+            return {
+              id: m.id,
+              winner: { id: m.winnerId, label: mergeLabels.get(m.winnerId)?.label ?? '(record)' },
+              loser: { id: m.loserId, label: mergeLabels.get(m.loserId)?.label ?? '(record)' },
+              mergedAt: m.mergedAt,
+              mergedBy: m.mergedBy,
+              unmergedAt: m.unmergedAt,
+              unmergedBy: m.unmergedBy,
+              moved: {
+                fields: snap.fields?.length ?? 0,
+                identities: snap.identities?.length ?? 0,
+                timelineEvents: snap.timelineEvents?.length ?? 0,
+              },
+            };
+          }),
           label: recordLabel(attrs, row.values as Record<string, unknown>),
           objectType: {
             id: row.objectType.id,
@@ -171,11 +234,26 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           attributes: attrs,
           input: input.values,
         });
+        const changed = diffOf(before.values, after.values);
+        const changedTitles = Object.keys(changed)
+          .map((k) => attrs.find((a) => a.id === k)?.title ?? null)
+          .filter((t): t is string => t !== null);
+        if (changedTitles.length)
+          await emitTimelineEvent(ctx.db, {
+            workspaceId: ctx.workspace.id,
+            dedupeKey: `field:${after.id}:${Date.now()}`,
+            type: 'FIELD_CHANGE',
+            occurredAt: new Date(),
+            recordId: after.id,
+            actorUserId: ctx.session.id,
+            summary: `Changed ${changedTitles.slice(0, 3).join(', ')}${changedTitles.length > 3 ? ` and ${changedTitles.length - 3} more` : ''}`,
+            payload: { kind: 'field_change', changed },
+          });
         await ctx.audit({
           action: 'record.updated',
           targetType: 'Record',
           targetId: after.id,
-          diff: diffOf(before.values, after.values),
+          diff: changed,
         });
         return {
           ...publicRecord(ctx.actor, attrs, after),
@@ -260,6 +338,72 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           actor: a.actorUser?.name ?? a.actorUser?.email ?? a.actorType.toLowerCase(),
           diff: a.diff as Record<string, unknown>,
         }));
+      }),
+
+    /** Reversible merge (§10, ADR-002): the loser is kept, every moved row is in the snapshot. */
+    merge: tenantProcedure
+      .use(authorize('delete', 'RecordMerge'))
+      .input(
+        z.object({
+          winnerId: z.string().uuid(),
+          loserId: z.string().uuid(),
+          reason: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (fixed) {
+          const both = await ctx.db.record.count({
+            where: { id: { in: [input.winnerId, input.loserId] }, objectType: { apiSlug: fixed } },
+          });
+          if (both !== 2) throw new NexusError('NOT_FOUND');
+        }
+        const r = await mergeRecords(ctx.db, ctx.actor, {
+          winnerId: input.winnerId,
+          loserId: input.loserId,
+          reason: input.reason ?? null,
+        });
+        await ctx.audit({
+          action: 'record.merged',
+          targetType: 'Record',
+          targetId: r.winnerId,
+          diff: {
+            mergeId: r.mergeId,
+            loserId: r.loserId,
+            fields: r.snapshot.fields,
+            moved: {
+              identities: r.snapshot.identities.length,
+              conversations: r.snapshot.conversations.length,
+              timelineEvents: r.snapshot.timelineEvents.length,
+              listEntries: r.snapshot.listEntries.length,
+              relations: r.snapshot.relations.length,
+            },
+          },
+        });
+        return { mergeId: r.mergeId, winnerId: r.winnerId, loserId: r.loserId };
+      }),
+
+    unmerge: tenantProcedure
+      .use(authorize('delete', 'RecordMerge'))
+      .input(
+        z.object({
+          mergeId: z.string().uuid(),
+          neverMerge: z.boolean().default(true),
+          reason: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const r = await unmergeRecords(ctx.db, ctx.actor, {
+          mergeId: input.mergeId,
+          neverMerge: input.neverMerge,
+          reason: input.reason ?? null,
+        });
+        await ctx.audit({
+          action: 'record.unmerged',
+          targetType: 'Record',
+          targetId: r.winnerId,
+          diff: { mergeId: r.mergeId, loserId: r.loserId, neverMergeId: r.neverMergeId },
+        });
+        return r;
       }),
 
     restore: tenantProcedure

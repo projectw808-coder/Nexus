@@ -1,4 +1,5 @@
 import { NexusError } from '@nexus/core';
+import { emitTimelineEvent } from '@nexus/db';
 import { z } from 'zod';
 import { authorize, router, tenantProcedure } from '../trpc';
 
@@ -40,6 +41,16 @@ export const noteRouter = router({
           authorId: ctx.session.id,
           body: input.body,
         },
+      });
+      await emitTimelineEvent(ctx.db, {
+        workspaceId: ctx.workspace.id,
+        dedupeKey: `note:${note.id}`,
+        type: 'NOTE',
+        occurredAt: note.createdAt,
+        recordId: record.id,
+        actorUserId: ctx.session.id,
+        summary: `Added a note: “${input.body.length > 140 ? `${input.body.slice(0, 139)}…` : input.body}”`,
+        payload: { kind: 'note', noteId: note.id },
       });
       await ctx.audit({
         action: 'note.created',
