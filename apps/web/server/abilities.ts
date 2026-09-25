@@ -43,6 +43,7 @@ export type SubjectName =
   | 'Identity'
   | 'MergeSuggestion'
   | 'RecordMerge'
+  | 'CannedReply'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -83,6 +84,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       can(['create', 'update', 'delete'], 'SavedView');
       // Managers resolve identities, review the merge queue and merge/unmerge records.
       can(['update', 'delete'], ['Identity', 'MergeSuggestion', 'RecordMerge']);
+      can(['create', 'update', 'delete'], 'CannedReply');
       cannot('read', ['ApiKey', 'ConnectionGrant']);
       break;
     case 'MEMBER':
@@ -102,11 +104,13 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'Identity',
         'MergeSuggestion',
         'RecordMerge',
+        'CannedReply',
       ]);
       can(['create', 'update'], ['Record', 'Conversation', 'ListEntry', 'Note', 'Task']);
       can('delete', 'Task');
       // Members may say "this handle is that person" — a confirmed, audited link.
       can('update', 'Identity');
+      can(['create', 'update'], 'CannedReply');
       can('export', 'Record');
       can(['create', 'update', 'delete'], 'SavedView');
       break;
@@ -127,6 +131,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'Identity',
         'MergeSuggestion',
         'RecordMerge',
+        'CannedReply',
       ]);
       break;
   }

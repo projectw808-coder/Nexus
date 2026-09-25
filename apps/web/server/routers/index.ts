@@ -1,5 +1,6 @@
 import { router, userProcedure } from '../trpc';
 import { auditRouter } from './audit';
+import { cannedReplyRouter } from './canned-replies';
 import { connectionRouter } from './connections';
 import { conversationRouter } from './conversations';
 import { exportRouter } from './export';
@@ -49,6 +50,8 @@ export const appRouter = router({
   identity: identityRouter,
   mergeSuggestion: mergeSuggestionRouter,
   timeline: timelineRouter,
+  // Phase 7 — the unified inbox
+  cannedReply: cannedReplyRouter,
 });
 
 export type AppRouter = typeof appRouter;

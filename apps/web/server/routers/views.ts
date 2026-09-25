@@ -8,7 +8,8 @@ const viewFields = {
   layout: z.enum(['TABLE', 'BOARD', 'CALENDAR', 'TIMELINE']).default('TABLE'),
   isShared: z.boolean().default(false),
   columns: z.array(z.string().max(64)).max(100).default([]),
-  filters: z.array(filterSchema).max(20).default([]),
+  /** Record filters, or (inbox views) the conversation filter state as an object. */
+  filters: z.union([z.array(filterSchema).max(20), z.record(z.string(), z.unknown())]).default([]),
   sorts: z.array(sortSchema).max(3).default([]),
 };
 
@@ -21,6 +22,8 @@ export const viewRouter = router({
         .object({
           objectTypeId: z.string().uuid().optional(),
           listId: z.string().uuid().optional(),
+          /** Inbox views belong to neither an object nor a list. */
+          scope: z.enum(['inbox']).optional(),
         })
         .default({}),
     )
@@ -28,6 +31,7 @@ export const viewRouter = router({
       const rows = await ctx.db.savedView.findMany({
         where: {
           deletedAt: null,
+          ...(input.scope === 'inbox' ? { objectTypeId: null, listId: null } : {}),
           ...(input.objectTypeId ? { objectTypeId: input.objectTypeId } : {}),
           ...(input.listId ? { listId: input.listId } : {}),
           OR: [{ isShared: true }, { ownerId: ctx.session.id }],
@@ -54,11 +58,13 @@ export const viewRouter = router({
       z.object({
         objectTypeId: z.string().uuid().optional(),
         listId: z.string().uuid().optional(),
+        /** Inbox views belong to neither (ADR-018). */
+        scope: z.enum(['inbox']).optional(),
         ...viewFields,
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (!input.objectTypeId && !input.listId)
+      if (!input.objectTypeId && !input.listId && input.scope !== 'inbox')
         throw new NexusError('VALIDATION', {
           context: { reason: 'A view belongs to an object or a list.' },
         });
