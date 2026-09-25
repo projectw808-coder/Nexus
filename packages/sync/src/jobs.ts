@@ -10,6 +10,7 @@ import { laneSchema } from '@nexus/connector-sdk';
 import { recordDeadLetter, systemActorFor } from '@nexus/db';
 import type { ActiveJob } from './bus.ts';
 import type { SyncDeps } from './deps.ts';
+import { executeOutbound } from './outbound.ts';
 import { normalizeObjects } from './stages/normalize.ts';
 import { runResourceSync } from './stages/acquire.ts';
 import { processWebhookEvent } from './webhooks.ts';
@@ -29,6 +30,8 @@ export const normalizeJobSchema = z.object({
   workspaceId: z.string().min(1),
   connectionId: z.string().min(1),
   objectIds: z.array(z.string().min(1)).min(1),
+  /** Replay from `materialize`: re-run the sink without resetting stamps. */
+  force: z.boolean().optional(),
 });
 export type NormalizeJob = z.infer<typeof normalizeJobSchema>;
 
@@ -39,10 +42,18 @@ export const ingestRawJobSchema = z.object({
 });
 export type IngestRawJob = z.infer<typeof ingestRawJobSchema>;
 
+export const outboundJobSchema = z.object({
+  workspaceId: z.string().min(1),
+  connectionId: z.string().min(1),
+  outboundActionId: z.string().min(1),
+});
+export type OutboundJobData = z.infer<typeof outboundJobSchema>;
+
 export const JOB_NAMES = {
   sync: 'sync',
   normalize: 'normalize',
   ingestWebhook: 'ingest.webhook',
+  outbound: 'outbound.execute',
 } as const;
 
 export function syncJobId(job: Pick<SyncJob, 'connectionId' | 'resource' | 'trigger'>): string {
@@ -64,6 +75,10 @@ export async function handleJob(deps: SyncDeps, job: ActiveJob): Promise<unknown
     case QUEUES.ingestRaw: {
       const data = ingestRawJobSchema.parse(job.data);
       return processWebhookEvent(deps, data);
+    }
+    case QUEUES.outbound: {
+      const data = outboundJobSchema.parse(job.data);
+      return executeOutbound(deps, data);
     }
     default:
       throw new Error(`the sync engine has no handler for queue ${job.queue}`);

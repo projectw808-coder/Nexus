@@ -18,6 +18,12 @@ export { createConnectorRegistry } from './registry.ts';
 export type { ConnectorRegistry, RegistryOptions } from './registry.ts';
 export type { SyncDeps, AppSecrets } from './deps.ts';
 export { countingSink } from './sink.ts';
+export { createConversationSink, composeSinks } from './sinks/conversations.ts';
+export type { ConversationSinkStats } from './sinks/conversations.ts';
+export { requestReply, executeOutbound, idempotencyKeyFor, OUTBOUND_JOB } from './outbound.ts';
+export type { ReplyRequest, ReplyOutcome, OutboundJob } from './outbound.ts';
+export { runMetaVersionMonitor } from './version-monitor.ts';
+export type { VersionMonitorResult } from './version-monitor.ts';
 export type { CanonicalSink, NormalizedBatch } from './sink.ts';
 export { bindConnection, loadConnection } from './context.ts';
 export type { Bound } from './context.ts';
@@ -28,10 +34,11 @@ export {
   syncJobSchema,
   normalizeJobSchema,
   ingestRawJobSchema,
+  outboundJobSchema,
   JOB_NAMES,
   syncJobId,
 } from './jobs.ts';
-export type { SyncJob, NormalizeJob, IngestRawJob } from './jobs.ts';
+export type { SyncJob, NormalizeJob, IngestRawJob, OutboundJobData } from './jobs.ts';
 export { runResourceSync } from './stages/acquire.ts';
 export type { SyncOutcome } from './stages/acquire.ts';
 export { normalizeObjects, requeuePendingNormalization } from './stages/normalize.ts';
@@ -40,7 +47,7 @@ export { receiveWebhook, processWebhookEvent } from './webhooks.ts';
 export type { ReceiveOutcome } from './webhooks.ts';
 export { replayConnection, replayDeadLetter } from './replay.ts';
 export type { ReplayStage } from './replay.ts';
-export { planDeltaPolls, enqueueBackfill, enqueueDelta } from './scheduler.ts';
+export { planDeltaPolls, enqueueBackfill, enqueueDelta, resourcesFor } from './scheduler.ts';
 export type { PlannedPoll } from './scheduler.ts';
 export { sweepTokens, loggingNotifier } from './token-refresh.ts';
 export type { Notifier, SweepResult } from './token-refresh.ts';

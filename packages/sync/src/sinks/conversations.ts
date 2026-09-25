@@ -1,0 +1,326 @@
+/**
+ * Stage 5 for conversations (§4.1 "materialize", scoped to what Phase 5 needs): canonical
+ * persons become `Identity` rows, conversations become `Conversation` rows and messages become
+ * `Message` rows, all upserted on their platform ids so replays and webhook redeliveries are
+ * no-ops. Identity → Person resolution (§10) is Phase 6: `personRecordId` stays null here.
+ *
+ * Messages may arrive before their conversation (a comment on a post we never fetched); the
+ * sink then creates the thread from the message. A conversation's `lastMessageAt`,
+ * `unreadCount` and the messaging window follow the newest inbound message.
+ */
+import type {
+  CanonicalConversation,
+  CanonicalMessage,
+  CanonicalPerson,
+  Platform,
+} from '@nexus/connector-sdk';
+import {
+  systemActorFor,
+  type ConversationKind,
+  type Prisma,
+  type TenantDb,
+  type TenantRuntime,
+} from '@nexus/db';
+import type { CanonicalSink, NormalizedBatch } from '../sink.ts';
+
+const KIND_OF: Record<CanonicalConversation['conversationType'], ConversationKind> = {
+  dm: 'DM',
+  comment_thread: 'COMMENT_THREAD',
+  mention_thread: 'MENTION',
+  review_thread: 'REVIEW',
+  email_thread: 'EMAIL_THREAD',
+  other: 'COMMENT_THREAD',
+};
+
+function kindFromMessage(m: CanonicalMessage): ConversationKind {
+  switch (m.messageType) {
+    case 'dm':
+      return 'DM';
+    case 'mention':
+      return 'MENTION';
+    case 'email':
+      return 'EMAIL_THREAD';
+    case 'review_reply':
+      return 'REVIEW';
+    default:
+      return 'COMMENT_THREAD';
+  }
+}
+
+export type ConversationSinkStats = { identities: number; conversations: number; messages: number };
+
+export function createConversationSink(
+  runtime: TenantRuntime,
+  opts: {
+    windowHoursFor?: (platform: Platform) => number | null;
+    onChange?: (change: {
+      workspaceId: string;
+      connectionId: string;
+      conversationIds: string[];
+    }) => void;
+  } = {},
+): CanonicalSink & { stats: ConversationSinkStats } {
+  const stats: ConversationSinkStats = { identities: 0, conversations: 0, messages: 0 };
+
+  async function upsertIdentity(
+    db: TenantDb,
+    workspaceId: string,
+    platform: Platform,
+    p:
+      CanonicalPerson | { externalId: string; handle?: string | null; displayName?: string | null },
+    seenAt: Date,
+  ): Promise<string> {
+    const existing = await db.identity.findFirst({
+      where: { workspaceId, platform, externalId: p.externalId },
+      select: { id: true, lastSeenAt: true },
+    });
+    const full = 'kind' in p ? p : null;
+    if (existing) {
+      await db.identity.update({
+        where: { id: existing.id },
+        data: {
+          ...(full?.handle ? { handle: full.handle } : {}),
+          ...(full?.displayName ? { displayName: full.displayName } : {}),
+          ...(full?.avatarUrl ? { avatarUrl: full.avatarUrl } : {}),
+          ...(full?.profileUrl ? { profileUrl: full.profileUrl } : {}),
+          ...(full?.email ? { email: full.email } : {}),
+          ...(full?.phone ? { phone: full.phone } : {}),
+          ...(seenAt > existing.lastSeenAt ? { lastSeenAt: seenAt } : {}),
+          ...(full ? { raw: full.raw as Prisma.InputJsonValue } : {}),
+        },
+      });
+      return existing.id;
+    }
+    const created = await db.identity.create({
+      data: {
+        workspaceId,
+        platform,
+        externalId: p.externalId,
+        handle: p.handle ?? null,
+        displayName: p.displayName ?? null,
+        avatarUrl: full?.avatarUrl ?? null,
+        profileUrl: full?.profileUrl ?? null,
+        email: full?.email ?? null,
+        phone: full?.phone ?? null,
+        raw: (full?.raw ?? {}) as Prisma.InputJsonValue,
+        firstSeenAt: seenAt,
+        lastSeenAt: seenAt,
+      },
+      select: { id: true },
+    });
+    stats.identities += 1;
+    return created.id;
+  }
+
+  return {
+    stats,
+    async materialize(batch: NormalizedBatch) {
+      const persons = new Map<string, CanonicalPerson>();
+      const conversations = new Map<string, CanonicalConversation>();
+      const messages: CanonicalMessage[] = [];
+      for (const item of batch.items) {
+        for (const e of item.entities) {
+          if (e.kind === 'person') persons.set(e.externalId, e);
+          else if (e.kind === 'conversation') conversations.set(e.externalId, e);
+          else if (e.kind === 'message') messages.push(e);
+        }
+      }
+      if (persons.size === 0 && conversations.size === 0 && messages.length === 0) return;
+      const actor = systemActorFor(batch.workspaceId, batch.connectionId);
+      const touched = new Set<string>();
+
+      await runtime.withTenant(actor, async (db) => {
+        const identityIds = new Map<string, string>();
+        for (const p of persons.values())
+          identityIds.set(
+            p.externalId,
+            await upsertIdentity(db, batch.workspaceId, batch.platform, p, p.occurredAt),
+          );
+
+        const conversationIds = new Map<string, string>();
+        const ensureConversation = async (
+          externalId: string,
+          seed: {
+            kind: ConversationKind;
+            customerExternalId: string | null;
+            subject: string | null;
+            at: Date;
+            parentExternalId: string | null;
+            sourceUrl: string | null;
+          },
+        ): Promise<string> => {
+          const cached = conversationIds.get(externalId);
+          if (cached) return cached;
+          const existing = await db.conversation.findFirst({
+            where: { connectionId: batch.connectionId, externalId },
+            select: { id: true },
+          });
+          if (existing) {
+            conversationIds.set(externalId, existing.id);
+            return existing.id;
+          }
+          let identityId: string | null = null;
+          if (seed.customerExternalId)
+            identityId =
+              identityIds.get(seed.customerExternalId) ??
+              (await upsertIdentity(
+                db,
+                batch.workspaceId,
+                batch.platform,
+                { externalId: seed.customerExternalId },
+                seed.at,
+              ));
+          const created = await db.conversation.create({
+            data: {
+              workspaceId: batch.workspaceId,
+              connectionId: batch.connectionId,
+              platform: batch.platform,
+              kind: seed.kind,
+              externalId,
+              subject: seed.subject,
+              identityId,
+              lastMessageAt: seed.at,
+              parentExternalId: seed.parentExternalId,
+            },
+            select: { id: true },
+          });
+          stats.conversations += 1;
+          conversationIds.set(externalId, created.id);
+          return created.id;
+        };
+
+        for (const c of conversations.values()) {
+          const customer =
+            c.participants.find((p) => p.role === 'customer') ??
+            c.participants.find((p) => p.role !== 'owner');
+          const id = await ensureConversation(c.externalId, {
+            kind: KIND_OF[c.conversationType],
+            customerExternalId: customer?.externalId ?? null,
+            subject: c.subject,
+            at: c.lastMessageAt ?? c.occurredAt,
+            parentExternalId: c.rootExternalId,
+            sourceUrl: c.sourceUrl,
+          });
+          const row = await db.conversation.findUniqueOrThrow({
+            where: { id },
+            select: { lastMessageAt: true, identityId: true, subject: true },
+          });
+          const data: Prisma.ConversationUpdateInput = {};
+          if (c.lastMessageAt && c.lastMessageAt > row.lastMessageAt)
+            data.lastMessageAt = c.lastMessageAt;
+          if (!row.identityId && customer) {
+            const idn =
+              identityIds.get(customer.externalId) ??
+              (await upsertIdentity(
+                db,
+                batch.workspaceId,
+                batch.platform,
+                {
+                  externalId: customer.externalId,
+                  handle: customer.handle,
+                  displayName: customer.displayName,
+                },
+                c.occurredAt,
+              ));
+            data.identity = { connect: { id: idn } };
+          }
+          if (c.subject && c.subject !== row.subject) data.subject = c.subject;
+          if (c.status === 'closed' || c.status === 'archived') data.status = 'CLOSED';
+          if (Object.keys(data).length) await db.conversation.update({ where: { id }, data });
+          touched.add(id);
+        }
+
+        for (const m of messages) {
+          const customer =
+            m.direction === 'inbound' ? m.authorExternalId : (m.recipientExternalIds?.[0] ?? null);
+          const conversationId = await ensureConversation(m.conversationExternalId, {
+            kind: kindFromMessage(m),
+            customerExternalId: customer,
+            subject: null,
+            at: m.sentAt,
+            parentExternalId: m.rootExternalId,
+            sourceUrl: m.sourceUrl,
+          });
+          const authorIdentityId =
+            m.direction === 'inbound'
+              ? (identityIds.get(m.authorExternalId) ??
+                (await upsertIdentity(
+                  db,
+                  batch.workspaceId,
+                  batch.platform,
+                  { externalId: m.authorExternalId },
+                  m.sentAt,
+                )))
+              : null;
+          const existing = await db.message.findFirst({
+            where: { conversationId, externalId: m.externalId },
+            select: { id: true },
+          });
+          const common = {
+            body: m.body,
+            bodyHtml: m.bodyHtml ?? null,
+            attachments: m.attachments as Prisma.InputJsonValue,
+            sentAt: m.sentAt,
+            replyWindowExpiresAt: m.replyWindowExpiresAt ?? null,
+            raw: m.raw as Prisma.InputJsonValue,
+          };
+          if (existing) {
+            await db.message.update({
+              where: { id: existing.id },
+              data: { ...common, ...(m.isDeleted ? { deletedAt: new Date() } : {}) },
+            });
+          } else {
+            await db.message.create({
+              data: {
+                workspaceId: batch.workspaceId,
+                conversationId,
+                externalId: m.externalId,
+                direction: m.direction === 'inbound' ? 'INBOUND' : 'OUTBOUND',
+                authorIdentityId,
+                deliveryState: m.direction === 'inbound' ? 'DELIVERED' : 'SENT',
+                ...(m.outboundActionId ? { outboundActionId: m.outboundActionId } : {}),
+                ...common,
+              },
+            });
+            stats.messages += 1;
+            const conv = await db.conversation.findUniqueOrThrow({
+              where: { id: conversationId },
+              select: { lastMessageAt: true, identityId: true, status: true },
+            });
+            await db.conversation.update({
+              where: { id: conversationId },
+              data: {
+                ...(m.sentAt > conv.lastMessageAt ? { lastMessageAt: m.sentAt } : {}),
+                ...(m.direction === 'inbound'
+                  ? {
+                      unreadCount: { increment: 1 },
+                      ...(conv.status === 'CLOSED' ? { status: 'OPEN' as const } : {}),
+                    }
+                  : {}),
+                ...(!conv.identityId && authorIdentityId
+                  ? { identity: { connect: { id: authorIdentityId } } }
+                  : {}),
+              },
+            });
+          }
+          touched.add(conversationId);
+        }
+      });
+      if (touched.size)
+        opts.onChange?.({
+          workspaceId: batch.workspaceId,
+          connectionId: batch.connectionId,
+          conversationIds: [...touched],
+        });
+    },
+  };
+}
+
+/** Run several sinks in sequence (counting + conversations, later identity/timeline/automation). */
+export function composeSinks(...sinks: CanonicalSink[]): CanonicalSink {
+  return {
+    async materialize(batch) {
+      for (const s of sinks) await s.materialize(batch);
+    },
+  };
+}

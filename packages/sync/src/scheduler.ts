@@ -9,6 +9,16 @@ import { listSchedulableConnections } from '@nexus/db';
 import type { SyncDeps } from './deps.ts';
 import { JOB_NAMES, syncJobId, type SyncJob } from './jobs.ts';
 
+/**
+ * A connector serving several platforms prefixes its resource ids (`fb.` / `ig.`); keep the
+ * ones that apply to this account's platform.
+ */
+export function resourcesFor<T extends { id: string }>(resources: T[], platform: Platform): T[] {
+  const prefix = platform === 'INSTAGRAM' ? 'ig.' : platform === 'FACEBOOK' ? 'fb.' : null;
+  if (!prefix) return resources;
+  return resources.filter((r) => r.id.startsWith(prefix));
+}
+
 export type PlannedPoll = {
   connectionId: string;
   workspaceId: string;
@@ -24,7 +34,7 @@ export async function planDeltaPolls(deps: SyncDeps): Promise<PlannedPoll[]> {
   for (const c of await listSchedulableConnections(deps.runtime)) {
     const connector = deps.registry.tryGet(c.platform);
     if (!connector) continue;
-    for (const r of connector.listResources()) {
+    for (const r of resourcesFor(connector.listResources(), c.platform)) {
       const setting = c.settings.resources[r.id];
       if (!(setting?.enabled ?? r.defaultEnabled)) continue;
       const job: SyncJob = {
@@ -61,7 +71,7 @@ export async function enqueueBackfill(
 ): Promise<string[]> {
   const connector = deps.registry.get(input.platform);
   const ids: string[] = [];
-  for (const r of connector.listResources()) {
+  for (const r of resourcesFor(connector.listResources(), input.platform)) {
     if (!r.supportsBackfill) continue;
     if (input.resources && !input.resources.includes(r.id)) continue;
     const job: SyncJob = {

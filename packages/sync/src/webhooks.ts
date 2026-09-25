@@ -68,9 +68,12 @@ export async function receiveWebhook(
       }
     }
   }
-  secret ??= deps.appSecrets.webhookSecret(platform);
-
-  const verified = secret !== null && connector.verifyWebhook(req, secret);
+  // Both are legitimate authorities: Keitaro-style platforms sign with the per-connection secret,
+  // Meta-style platforms with the app secret. Try the connection's first, then the app's.
+  const candidates = [secret, deps.appSecrets.webhookSecret(platform)].filter((s): s is string =>
+    Boolean(s),
+  );
+  const verified = candidates.some((s) => connector.verifyWebhook(req, s));
   const headers = Object.fromEntries(Object.entries(req.headers));
   if (!verified) {
     const ev = await recordUnroutedWebhookEvent(deps.runtime, {

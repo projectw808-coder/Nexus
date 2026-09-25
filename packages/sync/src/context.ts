@@ -93,15 +93,18 @@ export async function bindConnection(
     retry: deps.httpRetry,
     signal,
     now: deps.now ? () => deps.now!().getTime() : undefined,
-    servedVersion: {
-      header: 'x-mock-api-version',
-      pinned: apiVersion,
-      onDrift: (served) =>
-        log.warn('platform serves a different API version than pinned', {
-          served,
-          pinned: apiVersion,
-        }),
-    },
+    servedVersion:
+      connector.manifest.apiVersionHeader === undefined
+        ? undefined
+        : {
+            header: connector.manifest.apiVersionHeader,
+            pinned: apiVersion,
+            onDrift: (served) =>
+              log.warn('platform serves a different API version than pinned', {
+                served,
+                pinned: apiVersion,
+              }),
+          },
   });
 
   const ctx: ConnCtx<unknown> = {

@@ -6,6 +6,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import {
+  PLATFORM_LABELS,
   createHttpClient,
   generatePkcePair,
   mintOauthState,
@@ -207,12 +208,15 @@ export async function connectPlatform(
 
   const out: ConnectResult = { connections: [] };
   for (const account of chosen) {
-    const scopeCheck = await connector.verifyScopes(
-      provisionalCtx(deps, platform, actor.workspaceId, input.token, account.externalId),
-    );
+    const accountPlatform = account.platform;
+    const accountToken = account.token ?? input.token;
+    const scopeCheck = await connector.verifyScopes({
+      ...provisionalCtx(deps, platform, actor.workspaceId, accountToken, account.externalId),
+      platform: accountPlatform,
+    });
     const webhookSecret = randomBytes(32).toString('base64url');
     const result = await deps.runtime.withTenant(actor, async (db) => {
-      const tokenRef = (await deps.vault.putTokenSet(db, actor.workspaceId, input.token)).ref;
+      const tokenRef = (await deps.vault.putTokenSet(db, actor.workspaceId, accountToken)).ref;
       const webhookSecretRef = (
         await deps.vault.put(db, {
           workspaceId: actor.workspaceId,
@@ -222,20 +226,20 @@ export async function connectPlatform(
       ).ref;
       const conn = await upsertConnection(db, {
         workspaceId: actor.workspaceId,
-        platform,
-        label: labelFor(connector.manifest.displayName, account),
+        platform: accountPlatform,
+        label: labelFor(PLATFORM_LABELS[accountPlatform], account),
         accountExternalId: account.externalId,
         accountName: account.name,
         accountAvatarUrl: account.avatarUrl,
-        scopesGranted: input.token.scopes,
+        scopesGranted: accountToken.scopes,
         scopesRequired: connector.manifest.scopes.map((s) => s.id),
         capabilities: connector.manifest.capabilities.filter(
           (c) => !scopeCheck.degraded.includes(c),
         ),
         apiVersion: connector.manifest.apiVersion,
         tokenRef,
-        tokenExpiresAt: input.token.expiresAt ?? null,
-        refreshableUntil: input.token.refreshToken ? null : (input.token.expiresAt ?? null),
+        tokenExpiresAt: accountToken.expiresAt ?? null,
+        refreshableUntil: accountToken.refreshToken ? null : (accountToken.expiresAt ?? null),
         webhookSecretRef,
         ownerUserId: actor.userId,
       });
@@ -250,9 +254,9 @@ export async function connectPlatform(
         targetType: 'Connection',
         targetId: conn.id,
         diff: {
-          platform,
+          platform: accountPlatform,
           accountExternalId: account.externalId,
-          scopes: input.token.scopes,
+          scopes: accountToken.scopes,
           degraded: scopeCheck.degraded,
         },
       });
@@ -262,7 +266,7 @@ export async function connectPlatform(
       id: result.id,
       created: result.created,
       accountExternalId: account.externalId,
-      label: labelFor(connector.manifest.displayName, account),
+      label: labelFor(PLATFORM_LABELS[accountPlatform], account),
     });
 
     // Best effort: a failed subscription never blocks the connection — the reconciliation poll covers it.
@@ -273,11 +277,12 @@ export async function connectPlatform(
             deps,
             platform,
             actor.workspaceId,
-            input.token,
+            accountToken,
             account.externalId,
             webhookSecret,
           ),
           connectionId: result.id,
+          platform: accountPlatform,
         };
         await connector.subscribeWebhooks(ctx, connector.manifest.webhooks.resources);
       } catch (e) {
@@ -291,7 +296,7 @@ export async function connectPlatform(
       await enqueueBackfill(deps, {
         workspaceId: actor.workspaceId,
         connectionId: result.id,
-        platform,
+        platform: accountPlatform,
         maxPages: input.maxPages,
       });
     }

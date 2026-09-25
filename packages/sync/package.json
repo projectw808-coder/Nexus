@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@nexus/config": "workspace:*",
+    "@nexus/connector-meta": "workspace:*",
     "@nexus/connector-mock": "workspace:*",
     "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
