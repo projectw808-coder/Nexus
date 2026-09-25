@@ -1,0 +1,83 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`mock connector > normalizes a comment into a person and an inbound message, and an own reply into an outbound message 1`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "User 17",
+    "externalId": "user_17",
+    "handle": "user17",
+    "kind": "person",
+    "occurredAt": 2026-06-01T00:07:00.000Z,
+    "platform": "MOCK",
+    "profileUrl": "https://mock.platform.local/u/user17",
+    "raw": {
+      "handle": "user17",
+      "id": "user_17",
+      "name": "User 17",
+    },
+    "sourceUrl": "https://mock.platform.local/u/user17",
+  },
+  {
+    "attachments": [],
+    "authorExternalId": "user_17",
+    "body": "shipping discount help broken amazing",
+    "conversationExternalId": "post:post_1",
+    "direction": "inbound",
+    "externalId": "comment_7",
+    "kind": "message",
+    "messageType": "comment",
+    "occurredAt": 2026-06-01T00:07:00.000Z,
+    "parentExternalId": null,
+    "platform": "MOCK",
+    "raw": {
+      "accountId": "acct_1",
+      "authorHandle": "user17",
+      "authorId": "user_17",
+      "authorName": "User 17",
+      "body": "shipping discount help broken amazing",
+      "createdAt": "2026-06-01T00:07:00.000Z",
+      "id": "comment_7",
+      "postId": "post_1",
+      "replyToId": null,
+    },
+    "rootExternalId": "post_1",
+    "sentAt": 2026-06-01T00:07:00.000Z,
+    "sourceUrl": "https://mock.platform.local/p/post_1#comment_7",
+  },
+]
+`;
+
+exports[`mock connector > normalizes a comment into a person and an inbound message, and an own reply into an outbound message 2`] = `
+[
+  {
+    "authorExternalId": "acct_1",
+    "body": "Post 1: launch update thanks question love",
+    "externalId": "post_1",
+    "kind": "post",
+    "media": [],
+    "mediaType": "text",
+    "occurredAt": 2026-06-01T00:00:00.000Z,
+    "parentExternalId": null,
+    "platform": "MOCK",
+    "postType": "original",
+    "publishedAt": 2026-06-01T00:00:00.000Z,
+    "raw": {
+      "accountId": "acct_1",
+      "authorId": "acct_1",
+      "body": "Post 1: launch update thanks question love",
+      "commentCount": 3,
+      "createdAt": "2026-06-01T00:00:00.000Z",
+      "id": "post_1",
+      "likeCount": 42,
+      "mediaType": "text",
+    },
+    "rootExternalId": null,
+    "sourceUrl": "https://mock.platform.local/p/post_1",
+    "stats": {
+      "comments": 3,
+      "likes": 42,
+    },
+  },
+]
+`;

@@ -1,0 +1,10 @@
+{
+  "id": "post_1",
+  "accountId": "acct_1",
+  "authorId": "acct_1",
+  "body": "Post 1: launch update thanks question love",
+  "createdAt": "2026-06-01T00:00:00.000Z",
+  "mediaType": "text",
+  "likeCount": 42,
+  "commentCount": 3
+}

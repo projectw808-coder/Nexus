@@ -1,0 +1,24 @@
+{
+  "name": "@nexus/connector-mock",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The mock platform (a local fake API with configurable latency, 429s, 5xx, schema drift and dropped webhooks) and its connector — used by every pipeline test, the seed and the throughput benchmark (spec §16 Phase 4).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nexus/connector-sdk": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
