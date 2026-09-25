@@ -1,0 +1,21 @@
+{
+  "id": "thread_drifted0001",
+  "snippet": {
+    "channelId": "UCchannel0000000000000000",
+    "videoId": "vid_abc123",
+    "canReply": true,
+    "totalReplyCount": 0,
+    "isPublic": true,
+    "topLevelComment": {
+      "id": "thread_drifted0001",
+      "snippet": {
+        "authorDisplayName": "Future Author",
+        "videoId": "vid_abc123",
+        "textDisplay": "This shape adds a field the connector has never seen.",
+        "likeCount": 1,
+        "publishedAt": "2026-09-03T08:00:00.000Z",
+        "moderationStatus": "heldForReview"
+      }
+    }
+  }
+}

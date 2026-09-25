@@ -1,0 +1,26 @@
+{
+  "id": "pli_UExhYmNkZWZnaGlqa2xtbm9wcXJzdHV2d3h5ei4wMDAwMDAwMDAw",
+  "snippet": {
+    "publishedAt": "2026-09-01T12:00:00.000Z",
+    "channelId": "UCchannel0000000000000000",
+    "title": "How We Shipped Phase 8",
+    "description": "A behind-the-scenes look at the Nexus CRM connector build.",
+    "resourceId": { "videoId": "vid_abc123" },
+    "thumbnails": {
+      "default": {
+        "url": "https://i.ytimg.com/vi/vid_abc123/default.jpg",
+        "width": 120,
+        "height": 90
+      },
+      "high": {
+        "url": "https://i.ytimg.com/vi/vid_abc123/hqdefault.jpg",
+        "width": 480,
+        "height": 360
+      }
+    }
+  },
+  "contentDetails": {
+    "videoId": "vid_abc123",
+    "videoPublishedAt": "2026-09-01T12:00:00.000Z"
+  }
+}

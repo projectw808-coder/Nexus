@@ -1,0 +1,24 @@
+{
+  "id": "thread_UgxAbCdEfGhIjKlMnOp",
+  "snippet": {
+    "channelId": "UCchannel0000000000000000",
+    "videoId": "vid_abc123",
+    "canReply": true,
+    "totalReplyCount": 0,
+    "isPublic": true,
+    "topLevelComment": {
+      "id": "thread_UgxAbCdEfGhIjKlMnOp",
+      "snippet": {
+        "authorDisplayName": "Jane Doe",
+        "authorProfileImageUrl": "https://yt3.ggpht.com/a/avatar-jane.jpg",
+        "authorChannelId": { "value": "UCviewer0000000000000000" },
+        "videoId": "vid_abc123",
+        "textDisplay": "Great walkthrough, thanks!",
+        "textOriginal": "Great walkthrough, thanks!",
+        "likeCount": 4,
+        "publishedAt": "2026-09-02T08:00:00.000Z",
+        "updatedAt": "2026-09-02T08:00:00.000Z"
+      }
+    }
+  }
+}
