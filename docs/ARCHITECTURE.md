@@ -91,12 +91,32 @@ request → queue → connector HTTP call is a single trace, and every pino line
     Agreed, and it is measured only against the mock platform; against YouTube's 10k units/day the
     honest behaviour is a slow, correct ETA.
 
+11. **`seedSystemObjects` became idempotent by upsert instead of the workspace-level short-circuit
+    it started as.** A workspace seeded before a later phase adds a new system attribute (Phase
+    8's Deal attribution fields) needs a path to get it without a bespoke backfill migration for
+    every future addition; upserting by natural key on every `ensureSystemObjects` call gives
+    that for free and keeps the existing "seed once" behaviour for a workspace whose
+    `SYSTEM_OBJECTS` hasn't grown. → ADR-019.
+12. **`connectApiKeyPlatform` takes an already-open `db` instead of opening its own transaction**,
+    unlike `connectPlatform` — it is called from a tRPC mutation whose `tenantProcedure` already
+    wraps the request in one transaction, and PGlite's single connection deadlocks on a nested
+    `withTenant`. `connectPlatform` stays as it was because its only caller (the OAuth callback
+    route) has no open transaction to nest inside. → ADR-019.
+
 ## Things I checked rather than assumed
 
 - YouTube `search.list` really does sit in its own 100-calls/day bucket independent of units; the
-  connector must track both (Phase 8).
+  YouTube connector tracks both, and refuses `search.list` outside the `interactive` lane (Phase 8,
+  ADR-019).
 - Meta's expired-version fallback is silent; the served-version assertion on every response is
   the only reliable signal (Phase 5).
-- Gmail `history.list` returns **404**, not 410, for a stale `historyId` (Phase 8, behind a flag).
+- Gmail `history.list` returns **404**, not 410, for a stale `historyId` (deferred — Google
+  Workspace connectors (Gmail/Calendar/Business) stayed behind a flag past Phase 8; only X,
+  LinkedIn, TikTok, YouTube and Keitaro shipped, per spec §8.5's own "optional in v1" carve-out).
 - X pricing is credit-based pay-per-use as of 2026 with 24h dedup; the manifest encodes a spend
-  model, not tiers (Phase 8, re-verify at build time).
+  model, not tiers, with a per-connection `spendCap` required before any call is billable (Phase
+  8, ADR-019 — re-verify the rate card against X's live developer docs before going live).
+- TikTok's Business Messaging window is documented at 48 hours by third-party integrators
+  (SleekFlow, Respond.io); TikTok's own developer docs were not directly reachable while building
+  the connector, so this figure is flagged for re-verification in `docs/connectors/tiktok.md`
+  rather than treated as confirmed (Phase 8).

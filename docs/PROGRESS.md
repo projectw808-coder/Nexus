@@ -451,21 +451,100 @@ attachments (media pipeline, Phase 9) · send-as another account on the same thr
 · e-mail quoted-reply collapse (Gmail, Phase 8) · assignment rules and business hours from
 connection settings (Phase 10 automation) · report reflecting the reply (Phase 11).
 
-## Phase 8 — Remaining platforms
+## Phase 8 — Remaining platforms ✅
 
 X, LinkedIn, TikTok, YouTube and Keitaro — each with its approval/setup checklist, its quota or
 spend model, its constraints encoded in `preflight`, its capability sheet in `docs/connectors/`,
 and its fixtures.
 
-- [ ] each connector passes the shared contract suite
-- [ ] the YouTube connector refuses `search.list` from a sync path and reports both remaining
-      units and remaining capped-endpoint calls
-- [ ] the X connector projects spend correctly with the 24h dedup ledger applied and hard-stops at
-      its configured cap
-- [ ] the Keitaro connector ingests a `lead → sale → rejected` transition on one `subid`+`tid` and
-      correctly adds then reverses the deal revenue
-- [ ] per-connection permission grants demonstrably restrict a `member` to read-only on LinkedIn
-      while allowing engage on Instagram
+- [x] each connector passes the shared contract suite — `defineConnectorContract` green for all
+      five (`packages/connectors/{x,linkedin,tiktok,youtube,keitaro}/src/connector.test.ts`);
+      Keitaro and LinkedIn omit `spec.webhook` (their `shared_secret` verification proves the
+      sender knows a secret, not body integrity, so the suite's universal tamper-rejection check
+      does not apply — verified with dedicated tests instead), X omits webhooks entirely (see
+      "Deferred"), TikTok includes it (`hmac_sha256` genuinely protects body integrity).
+- [x] the YouTube connector refuses `search.list` from a sync path and reports both remaining
+      units and remaining capped-endpoint calls — `search.list` is not one of
+      `manifest.resources`, so the engine can never schedule it; `fetchPage({id:'yt.search'})`
+      additionally throws `POLICY_BLOCKED` outside the `interactive` lane before touching the
+      platform. A dedicated test drives 100 interactive searches to exhaust the endpoint's own
+      cap and confirms the 101st is refused with `QUOTA_EXHAUSTED` while the 10,000-unit daily
+      pool still shows 9,900 free — the two buckets are independent, not conflated — and
+      `ctx.budget.snapshot()` reports both figures at all times.
+- [x] the X connector projects spend correctly with the 24h dedup ledger applied and hard-stops at
+      its configured cap — `metered_credits` quota with the §8.2 rate card; a test reads the same
+      resource twice "on the same day" (an injected clock) and confirms credits are charged once;
+      another exhausts a tiny `spendCap.monthlyCapUnits` and confirms the next read throws
+      `QUOTA_EXHAUSTED`; a third calls `simulateQuota` with the manifest and asserts the projected
+      daily/monthly spend against a hand-computed figure.
+- [x] the Keitaro connector ingests a `lead → sale → rejected` transition on one `subid`+`tid` and
+      correctly adds then reverses the deal revenue — `packages/sync/src/sinks/attribution.ts` +
+      `KeitaroConversionState` (a ledger, not a cache: it stores what IT last applied, so a
+      reversal is exact regardless of what the incoming payload's `previousStatus` claims);
+      `packages/sync/src/sinks/attribution.test.ts` proves add-then-reverse-to-zero, attribution
+      staying immutable after a later postback tries to change it, redelivery of the same event
+      being a pure no-op, and several `tid`s under one `subid` rolling onto the same Deal with
+      independent reversal.
+- [x] per-connection permission grants demonstrably restrict a `member` to read-only on LinkedIn
+      while allowing engage on Instagram — already covered by
+      `apps/web/server/trpc.test.ts`'s "per-connection grants restrict a member per platform"
+      (built in an earlier phase): a MEMBER with an `ENGAGE` grant on one connection can engage
+      only there and is read-only everywhere else, LinkedIn included. No connector-side write
+      capability was needed for this to be true — the grant restricts what the product lets a
+      user attempt, independent of what any given connector implements (ADR-019).
+
+What was built:
+
+- **Keitaro** (`packages/connectors/keitaro`, `authKind: 'api_key'`): no OAuth — a new
+  `connection.connectApiKey` mutation and `connectApiKeyPlatform` (ADR-019) health-check the
+  base URL and key live before persisting anything, then return a postback URL with the
+  connection's webhook secret baked in for the user to paste into their tracker. Conversions and
+  slow-changing campaign/offer/source dimensions poll on their own resources; `keitaro.clicks` is
+  declared (so the settings UI can show its off-by-default toggle) but not yet wired to
+  `fetchPage` — see "Deferred". Seven new Deal attributes (`attribution_campaign`/`_source`/
+  `_offer`/`_affiliate_network`/`_creative`/`_landing`/`_geo`) carry attribution stamped once at
+  Deal creation; `seedSystemObjects` became idempotent-by-upsert so a workspace seeded before
+  Phase 8 picks them up on its next `ensureSystemObjects` call instead of only new workspaces
+  getting them. `ConnectionSettings.clientLimiter` (dormant since Phase 4) now actually overrides
+  a `fixed_window` connector's rate per connection.
+- **X** (`packages/connectors/x`, `oauth2_pkce`): mentions and DMs, `metered_credits` quota with
+  the 24h UTC dedup ledger and a required per-connection spend cap, the 13× URL-bearing-reply
+  cost surfaced as a `preflight` warning, tombstoned (deleted) posts kept and flagged rather than
+  dropped.
+- **LinkedIn** (`packages/connectors/linkedin`, `oauth2`): organization posts, comments and Lead
+  Sync, every call pinned via the `LinkedIn-Version` header; member-only vs. organization-approved
+  scopes degrade independently, with a first-class `'degraded'` health state (not an error) for
+  "not yet approved"; no outbound action and no messaging capability of any kind, since LinkedIn's
+  API has neither for this connector's scope.
+- **TikTok** (`packages/connectors/tiktok`, `oauth2`): one connector, two provider consoles
+  (`config.provider: 'business' | 'display'`, mirroring Meta's one-connector-two-platforms shape)
+  — Display is read-only public content; Business adds comment moderation, Lead Generation, and
+  fully-implemented Business Messaging DMs with a 48-hour reply window enforced in `preflight`
+  exactly like Meta's 24-hour rule (never shipped as "unsupported").
+- **YouTube** (`packages/connectors/youtube`, `oauth2`): video and comment-thread sync via
+  `playlistItems.list`/`commentThreads.list`; `search.list` and `videos.insert` tracked as
+  independent 100-calls/day buckets alongside the shared 10,000-unit daily pool (`daily_units`
+  quota, already generic in the SDK since Phase 4).
+- Every connector follows the same shape: `manifest.ts` / `connector.ts` /
+  `testing/<platform>-double.ts` / `fixtures/*.json` / `connector.test.ts` on the shared
+  `defineConnectorContract` suite, and a 15-section capability sheet in `docs/connectors/`, each
+  dated and flagged for re-verification where a live app wasn't available to confirm a figure
+  against (X's rate card, LinkedIn's endpoints/quota, TikTok's 48h window, Keitaro's endpoint
+  paths) — the same "verified against a double, not the real platform" caveat Phase 5 carries.
+- Settings → Integrations: `CONNECTABLE` now lists all five OAuth platforms (degrading to "not
+  configured" for whichever the deployment has no app credentials for) plus a dedicated
+  base-URL-and-key form for Keitaro with a copy-to-clipboard postback URL.
+- Migration `20260930000000_keitaro_attribution` (`KeitaroConversionState`).
+- ADR-019 (the ledger/immutability/transaction/quota design decisions above).
+
+**Deferred:** the X filtered stream (mentions/DMs poll instead of the cheaper, lower-latency
+persistent stream connection the spec prefers) · Keitaro `keitaro.clicks` fetching and the
+sub_id-mapped anonymous-Identity resolution described in §8.6 (normalized but not yet sunk) ·
+Keitaro `/report/build` aggregate reports (Phase 9/11) · Google Workspace connectors (Gmail,
+Calendar, Business Profile) — spec §8.5 calls these "optional in v1, build the interface," and
+none of the three shipped this phase · the full integrations hub, health console and quota
+simulator UI surfacing the numbers these connectors already compute (Phase 9, the simulator and
+budget snapshot themselves are done at the SDK level since Phase 4).
 
 ## Phase 9 — Integrations hub & health console
 
