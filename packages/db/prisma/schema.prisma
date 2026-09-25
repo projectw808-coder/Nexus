@@ -878,6 +878,9 @@ model Identity {
   firstSeenAt    DateTime  @default(now())
   lastSeenAt     DateTime  @default(now())
   personRecordId String?
+  /// When the resolver last scored this identity (null = never); the nightly job re-scores
+  /// unresolved identities older than a day.
+  resolutionAttemptedAt DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
   deletedAt      DateTime?
@@ -886,6 +889,7 @@ model Identity {
   personRecord Record?   @relation(fields: [personRecordId], references: [id], onDelete: SetNull)
 
   links                IdentityLink[]
+  mergeSuggestions     MergeSuggestion[]
   conversations        Conversation[]
   authoredMessages     Message[]
   timelineEvents       TimelineEvent[] @relation("TimelineEventIdentity")
@@ -896,6 +900,7 @@ model Identity {
   @@index([workspaceId, phone])
   @@index([workspaceId, platform, handle])
   @@index([workspaceId, personRecordId])
+  @@index([workspaceId, personRecordId, resolutionAttemptedAt])
   @@index([personRecordId])
 }
 
@@ -932,7 +937,10 @@ model IdentityLink {
 model MergeSuggestion {
   id            String           @id @default(uuid())
   workspaceId   String
-  leftRecordId  String
+  /// Exactly one of leftRecordId / identityId is set (ADR-017): a record↔record pair, or an
+  /// unresolved identity proposed for rightRecordId.
+  leftRecordId  String?
+  identityId    String?
   rightRecordId String
   score         Float
   signals       Json             @default("{}")
@@ -944,11 +952,14 @@ model MergeSuggestion {
   deletedAt     DateTime?
 
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  leftRecord  Record    @relation("MergeSuggestionLeft", fields: [leftRecordId], references: [id], onDelete: Cascade)
+  leftRecord  Record?   @relation("MergeSuggestionLeft", fields: [leftRecordId], references: [id], onDelete: Cascade)
+  identity    Identity? @relation(fields: [identityId], references: [id], onDelete: Cascade)
   rightRecord Record    @relation("MergeSuggestionRight", fields: [rightRecordId], references: [id], onDelete: Cascade)
   decidedBy   User?     @relation(fields: [decidedById], references: [id], onDelete: SetNull)
 
   @@unique([workspaceId, leftRecordId, rightRecordId])
+  @@unique([workspaceId, identityId, rightRecordId])
+  @@index([identityId])
   @@index([workspaceId, status, score(sort: Desc)])
   @@index([workspaceId, rightRecordId])
   @@index([leftRecordId])
@@ -1121,6 +1132,8 @@ model TimelineEvent {
   payload          Json         @default("{}")
   sourceUrl        String?
   externalObjectId String?
+  /// Idempotency key for sink-produced events (replays and redeliveries are no-ops).
+  dedupeKey        String?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   deletedAt        DateTime?
@@ -1133,6 +1146,7 @@ model TimelineEvent {
   actorUser      User?           @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
   externalObject ExternalObject? @relation(fields: [externalObjectId], references: [id], onDelete: SetNull)
 
+  @@unique([workspaceId, dedupeKey])
   @@index([workspaceId, recordId, occurredAt(sort: Desc)])
   @@index([workspaceId, identityId, occurredAt(sort: Desc)])
   @@index([workspaceId, connectionId, occurredAt(sort: Desc)])
