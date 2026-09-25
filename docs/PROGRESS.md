@@ -341,18 +341,65 @@ platform's `is_echo` of our own send onto its `OutboundAction` (Phase 7 inbox) �
 integrations page setup checklist UI (Phase 9) · e-mailing the connection owner on
 RECONNECT_REQUIRED (Phase 9).
 
-## Phase 6 — Identity resolution & the unified timeline
+## Phase 6 — Identity resolution & the unified timeline ✅
 
-Tiered matching, evidence capture, the "why" panel, suggestion queue, `RecordMerge` with reversible
-merge/unmerge, `NeverMerge`, nightly re-scoring, `TimelineEvent` assembly with provenance and
-per-platform filters, and the identity-then-record backfill described in §6.6(3).
+Tiered matching with evidence, the "why" panel, the review queue, `RecordMerge` with exact
+merge → unmerge, `NeverMerge`, the nightly re-score, `TimelineEvent` assembly with provenance
+and per-platform / per-type filters, and the identity-then-record backfill of §6.6(3).
 
-- [ ] seed a person with five channel identities and confirm one Person with five chips
-- [ ] a correct chronological timeline
-- [ ] an explainable merge
-- [ ] a state identical to the pre-merge snapshot after merge→unmerge
-- [ ] an unresolved identity's events are visible on the identity and move to the Person on
-      resolution without duplication
+- [x] seed a person with five channel identities and confirm one Person with five chips —
+      `packages/db/src/identity/identity.test.ts` (Facebook by e-mail, LinkedIn by phone, the
+      handle matches on Instagram / X / TikTok through the queue) and `apps/web/e2e/identity.spec.ts`
+      (five chips in the person header, each linking to its identity page).
+- [x] a correct chronological timeline — events written on five identities out of order come
+      back newest-first on the person, with the platform, connection, actor and provenance
+      ("on identity" vs "on this record") on every entry; filter chips per platform and type
+      from server facets; collapsible days; cursor paging.
+- [x] an explainable merge — the queue shows every suggestion's verbatim signals (tier, weight,
+      both sides); a linked identity's "why?" opens the `IdentityLink.evidence`; the merge panel
+      says what moved; the field history popover shows the values a merge kept.
+- [x] a state identical to the pre-merge snapshot after merge→unmerge — the db suite snapshots
+      every row a merge can touch (values, merge state, identities, links, conversations,
+      events, list entries, relations, notes, tasks, suggestions), merges, undoes, and asserts
+      deep equality; the e2e spec does it through the UI (6 chips → 5, the merge event gone).
+- [x] an unresolved identity's events are visible on the identity and move to the Person on
+      resolution without duplication — `queryTimeline` on the identity shows them; `linkIdentity`
+      backfills `recordId` on the events and `personRecordId` on the conversations in one
+      `updateMany` each (the test counts rows before and after); unlink moves them back.
+
+What was built:
+
+- `@nexus/core/identity`: normalisers (e-mail, E.164-ish phone with national-number match,
+  handle, name, domains, profile URLs, pg_trgm-compatible trigram similarity) and the pure
+  scorer `scorePair` — Tier 1 e-mail / phone / platform-provided linkage, Tier 2 corroborated
+  handle / company domain + name / bio link to a known profile, Tier 3 fuzzy name (+ locale),
+  uncorroborated handle — noisy-or combination, the §10 auto rule, `decision` and `method`.
+- `packages/db/src/identity`: `upsertIdentity` with handle history in `raw._handleHistory` and a
+  SYSTEM event on a handle change (§8.7); idempotent `emitTimelineEvent` on `dedupeKey`;
+  `queryTimeline` (record ∪ its identities, or one identity; facets; cursor); subject builders;
+  index-backed candidate search (identities by e-mail/phone/handle/linked id, person values by
+  e-mail/phone, `similarity()` on the name); `resolveIdentity` / `linkIdentity` / `unlinkIdentity`
+  / `createPersonFromIdentity` / `rescoreSuggestion` / `scanPersonForDuplicates`; `mergeRecords`
+  / `unmergeRecords` / `alternatesFor` with the ADR-002 snapshot. Migration
+  `20260928000000_identity_resolution` (suggestion subject, `dedupeKey`, `resolutionAttemptedAt`).
+- Engine: the timeline sink (messages, comments, mentions, engagements, reviews, lead forms →
+  events on identities; lead forms get a `lead:<id>` identity so their e-mail/phone resolves),
+  the identity sink (resolves every identity a batch touched, audited as SYSTEM), the nightly
+  `runIdentityRescore` (worker job `identity.rescore`, `pnpm nexus rescore`); the conversation
+  sink now uses the shared upsert and attaches `personRecordId` when the identity is resolved.
+- Web: `timeline`, `identity` and `mergeSuggestion` routers, `record.merge` / `record.unmerge`
+  and identities / alternates / merge history on `record.get`; NOTE, TASK, FIELD_CHANGE and
+  STAGE_CHANGE events from the note, task, record and list-entry routers; the person page
+  (chips, identities with "why?", merge panel, timeline, merged-away banner), the identity page
+  (profile, resolution with candidates scored live, link / create / resolve, own timeline), the
+  Duplicates page (queue with j/k/a/r/Enter, unresolved accounts); all in the isolation suite.
+- Docs: ADR-017 (where suggestions live, when a person is created, survivorship proxy, unmerge
+  exactness, nightly order, idempotent timeline).
+
+**Deferred:** avatar perceptual hashes (needs the Phase 9 media pipeline) and bio embeddings
+(Phase 10 AI layer) as Tier-3 signals · per-field verification for survivorship (Phase 11) ·
+merge for companies via their own duplicate scan (the merge itself works on any object) ·
+handle-change events on outbound-only identities · the relationship map on the record page.
 
 ## Phase 7 — Unified Inbox
 
