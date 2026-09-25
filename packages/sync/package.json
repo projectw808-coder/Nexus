@@ -1,0 +1,27 @@
+{
+  "name": "@nexus/sync",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The sync engine (spec §4.1, §9): the seven-stage pipeline, sync runs, webhook intake, replay and the dead-letter policy. Hosted by apps/worker; also callable inline from the web tier and the CLI.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nexus/config": "workspace:*",
+    "@nexus/connector-mock": "workspace:*",
+    "@nexus/connector-sdk": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "@nexus/db": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

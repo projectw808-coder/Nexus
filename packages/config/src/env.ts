@@ -104,6 +104,13 @@ export const envSchema = z.object({
   YOUTUBE_SEARCH_DAILY_CALLS: int(100),
   YOUTUBE_INSERT_DAILY_CALLS: int(100),
 
+  // ── Mock platform (tests, seed, local development) ───────────────────────
+  /** Origin of the mock platform. `https://mock.platform.local` is served in-process; a `listen()`ed server is `http://127.0.0.1:<port>`. */
+  MOCK_PLATFORM_URL: z.url().default('https://mock.platform.local'),
+  MOCK_CLIENT_ID: z.string().default('mock-client'),
+  MOCK_CLIENT_SECRET: z.string().default('mock-secret'),
+  MOCK_WEBHOOK_SECRET: z.string().default('mock-webhook-secret'),
+
   // ── Keitaro defaults (base URL + key live on the Connection, not here) ───
   KEITARO_DEFAULT_RPS: z.coerce.number().positive().default(2),
   KEITARO_DEFAULT_CONCURRENCY: int(2),
