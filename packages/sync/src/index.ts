@@ -57,7 +57,14 @@ export { planDeltaPolls, enqueueBackfill, enqueueDelta, resourcesFor } from './s
 export type { PlannedPoll } from './scheduler.ts';
 export { sweepTokens, loggingNotifier } from './token-refresh.ts';
 export type { Notifier, SweepResult } from './token-refresh.ts';
-export { connectPlatform, startOauth, completeOauth, buildAuthCtx } from './connect.ts';
+export {
+  connectPlatform,
+  connectApiKeyPlatform,
+  startOauth,
+  completeOauth,
+  buildAuthCtx,
+} from './connect.ts';
+export type { ConnectApiKeyResult } from './connect.ts';
 export type { ConnectResult } from './connect.ts';
 export {
   createSyncDeps,

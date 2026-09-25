@@ -8,8 +8,10 @@ import {
   createHttpClient,
   type ConnCtx,
   type Connector,
+  type ConnectionSettings,
   type Lane,
   type Logger,
+  type QuotaModel,
   type TokenSet,
 } from '@nexus/connector-sdk';
 import { getConnection, systemActorFor, type ConnectionRow } from '@nexus/db';
@@ -22,6 +24,21 @@ export type Bound = {
   ctx: ConnCtx<unknown>;
   log: Logger;
 };
+
+/**
+ * `ConnectionSettings.clientLimiter` (§8.6: Keitaro's "no published limit" default) overrides a
+ * `fixed_window` manifest quota's rate with a per-connection one; every other quota shape is
+ * platform-published and not user-tunable, so it passes through unchanged.
+ */
+export function quotaFor(manifest: QuotaModel, settings: ConnectionSettings): QuotaModel {
+  if (manifest.kind !== 'fixed_window' || !settings.clientLimiter) return manifest;
+  return {
+    ...manifest,
+    windowSeconds: 1,
+    limit: Math.max(1, Math.round(settings.clientLimiter.requestsPerSecond)),
+    maxConcurrent: settings.clientLimiter.maxConcurrent,
+  };
+}
 
 function childLogger(base: Logger, fields: Record<string, unknown>): Logger {
   const wrap =
@@ -125,7 +142,7 @@ export async function bindConnection(
     },
     budget: deps.limiter.handle({
       connectionId: connection.id,
-      quota: connector.manifest.quota,
+      quota: quotaFor(connector.manifest.quota, connection.settings),
       lane: input.lane,
       spendCap: connection.settings.spendCap,
     }),

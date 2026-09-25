@@ -14,9 +14,14 @@
   },
   "dependencies": {
     "@nexus/config": "workspace:*",
+    "@nexus/connector-keitaro": "workspace:*",
+    "@nexus/connector-linkedin": "workspace:*",
     "@nexus/connector-meta": "workspace:*",
     "@nexus/connector-mock": "workspace:*",
     "@nexus/connector-sdk": "workspace:*",
+    "@nexus/connector-tiktok": "workspace:*",
+    "@nexus/connector-x": "workspace:*",
+    "@nexus/connector-youtube": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/db": "workspace:*",
     "zod": "^4.6.5"

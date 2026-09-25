@@ -7,18 +7,21 @@
 import { randomBytes } from 'node:crypto';
 import {
   PLATFORM_LABELS,
+  connectionSettingsSchema,
   createHttpClient,
   generatePkcePair,
   mintOauthState,
   verifyOauthState,
   type AuthCtx,
   type ConnCtx,
+  type ConnectionSettingsInput,
   type DiscoveredAccount,
   type Platform,
   type TokenSet,
 } from '@nexus/connector-sdk';
 import { NexusError } from '@nexus/core';
-import { upsertConnection, writeAudit, type Actor } from '@nexus/db';
+import { upsertConnection, writeAudit, type Actor, type TenantDb } from '@nexus/db';
+import { quotaFor } from './context.ts';
 import type { SyncDeps } from './deps.ts';
 import { enqueueBackfill } from './scheduler.ts';
 
@@ -118,44 +121,24 @@ function provisionalCtx(
   token: TokenSet,
   accountExternalId = 'me',
   webhookSecret: string | null = null,
+  settingsOverride: ConnectionSettingsInput = {},
 ): ConnCtx<unknown> {
   const connector = deps.registry.get(platform);
   const connectionId = `pending:${workspaceId}:${platform}`;
+  const settings = connectionSettingsSchema.parse(settingsOverride);
   return {
     workspaceId,
     connectionId,
     platform,
     apiVersion: connector.manifest.apiVersion,
     accountExternalId,
-    settings: {
-      resources: {},
-      backfillDays: 90,
-      overlapSeconds: 300,
-      apiVersion: null,
-      fieldMappingId: null,
-      autoCreatePersonOnInbound: true,
-      assignmentRuleId: null,
-      slaTargetMinutes: null,
-      businessHours: null,
-      awayMessage: null,
-      filters: { profanity: false, spam: false },
-      retentionDays: null,
-      rateLimitTier: null,
-      dryRun: false,
-      paused: false,
-      spendCap: null,
-      baseUrl: null,
-      caCertPem: null,
-      clientLimiter: null,
-      subIdMapping: {},
-      clickFilter: null,
-    },
+    settings,
     config: (connector as { config?: unknown }).config ?? {},
     token: async () => token,
     webhookSecret: async () => webhookSecret,
     budget: deps.limiter.handle({
       connectionId,
-      quota: connector.manifest.quota,
+      quota: quotaFor(connector.manifest.quota, settings),
       lane: 'interactive',
     }),
     http: createHttpClient({
@@ -308,4 +291,124 @@ function labelFor(displayName: string, account: DiscoveredAccount): string {
   return account.handle
     ? `${displayName} — ${account.name} (@${account.handle})`
     : `${displayName} — ${account.name}`;
+}
+
+export type ConnectApiKeyResult = {
+  connectionId: string;
+  created: boolean;
+  label: string;
+  /** Paste this into the platform's postback/webhook configuration — the secret rides in it. */
+  postbackUrl: string | null;
+};
+
+/**
+ * Connect an `api_key` platform (Keitaro, §8.6): no redirect, no discovery of several accounts —
+ * one call creates one Connection against the base URL and key the user typed in. Verified with
+ * a live `health()` check before anything is persisted, so a bad key or an unreachable tracker
+ * never produces a connection that only fails later.
+ *
+ * Takes an already-open `db` rather than opening its own transaction, unlike `connectPlatform`
+ * (which is only ever reached from the OAuth callback route, outside any transaction). This
+ * function's only caller is the `connectApiKey` tRPC mutation, whose `tenantProcedure` wraps the
+ * whole request in one transaction already — nesting a second `withTenant` on it would try to
+ * open a second connection against the same single-connection PGlite pool and deadlock. The
+ * caller also audits (via `ctx.audit`) for the same reason: ADR-007's enforcement counts
+ * `ctx.audit` calls specifically, not `AuditLog` rows written some other way.
+ */
+export async function connectApiKeyPlatform(
+  deps: SyncDeps,
+  db: TenantDb,
+  input: {
+    actor: Actor;
+    platform: Platform;
+    apiKey: string;
+    baseUrl: string;
+    caCertPem?: string | null;
+    clientLimiter?: { requestsPerSecond: number; maxConcurrent: number } | null;
+    backfill?: boolean;
+  },
+): Promise<ConnectApiKeyResult> {
+  const { actor, platform } = input;
+  if (!actor.userId)
+    throw new NexusError('FORBIDDEN', { message: 'a user must perform the connection' });
+  const connector = deps.registry.get(platform);
+  if (connector.manifest.authKind !== 'api_key')
+    throw new NexusError('VALIDATION', { message: `${platform} does not use an API key` });
+  if (!input.baseUrl.startsWith('https://'))
+    throw new NexusError('VALIDATION', { message: 'the tracker base URL must use HTTPS' });
+
+  const token: TokenSet = { accessToken: input.apiKey, scopes: [], tokenType: 'ApiKey', raw: {} };
+  const settingsOverride: ConnectionSettingsInput = {
+    baseUrl: input.baseUrl,
+    caCertPem: input.caCertPem ?? null,
+    clientLimiter: input.clientLimiter ?? null,
+  };
+  const probeCtx = provisionalCtx(
+    deps,
+    platform,
+    actor.workspaceId,
+    token,
+    'me',
+    null,
+    settingsOverride,
+  );
+  const health = await connector.health(probeCtx);
+  if (health.status === 'down' || health.status === 'reconnect_required') {
+    const detail = health.checks.find((c) => !c.ok);
+    throw new NexusError(detail?.failureClass ?? 'PLATFORM_DOWN', {
+      message: detail?.detail ?? `could not reach ${platform}`,
+      context: { reason: detail?.remediation ?? 'Check the base URL and API key and try again.' },
+    });
+  }
+
+  const [account] = await connector.discoverAccounts(probeCtx);
+  if (!account)
+    throw new NexusError('NOT_FOUND', { message: `${platform} reported no account to connect` });
+
+  const webhookSecret = randomBytes(32).toString('base64url');
+  const tokenRef = (await deps.vault.putTokenSet(db, actor.workspaceId, token, 'API_KEY')).ref;
+  const webhookSecretRef = connector.manifest.webhooks.supported
+    ? (
+        await deps.vault.put(db, {
+          workspaceId: actor.workspaceId,
+          kind: 'WEBHOOK_SECRET',
+          secret: webhookSecret,
+        })
+      ).ref
+    : null;
+  const conn = await upsertConnection(db, {
+    workspaceId: actor.workspaceId,
+    platform,
+    label: labelFor(PLATFORM_LABELS[platform], account),
+    accountExternalId: account.externalId,
+    accountName: account.name,
+    accountAvatarUrl: account.avatarUrl,
+    scopesGranted: [],
+    scopesRequired: [],
+    capabilities: connector.manifest.capabilities,
+    apiVersion: connector.manifest.apiVersion,
+    tokenRef,
+    webhookSecretRef,
+    ownerUserId: actor.userId,
+    settings: settingsOverride,
+  });
+  const result = { ...conn, webhookSecretRef };
+
+  if (input.backfill ?? true) {
+    await enqueueBackfill(deps, {
+      workspaceId: actor.workspaceId,
+      connectionId: result.id,
+      platform,
+    });
+  }
+
+  const postbackUrl = result.webhookSecretRef
+    ? `${(deps.appUrl ?? '').replace(/\/+$/, '')}/api/webhooks/${platform.toLowerCase()}/${result.id}?key=${webhookSecret}`
+    : null;
+  return {
+    connectionId: result.id,
+    created: result.created,
+    label: labelFor(PLATFORM_LABELS[platform], account),
+    postbackUrl,
+  };
 }
