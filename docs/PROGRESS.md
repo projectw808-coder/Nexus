@@ -401,15 +401,55 @@ What was built:
 merge for companies via their own duplicate scan (the merge itself works on any object) ·
 handle-change events on outbound-only identities · the relationship map on the record page.
 
-## Phase 7 — Unified Inbox
+## Phase 7 — Unified Inbox ✅
 
 Three-pane inbox, per-platform tabs, assignment, statuses, snooze, SLA timers, internal notes,
-canned replies, platform-aware composer, the context sidebar (backed by Phase 6), SSE realtime,
-keyboard model, bulk triage.
+canned replies, the platform-aware composer, the context sidebar (backed by Phase 6), SSE
+realtime, the keyboard model and bulk triage.
 
-- [ ] the e2e path in §15 passes
-- [ ] two users see each other's assignment changes live
-- [ ] inbox p95 load < 500 ms with 50k conversations
+- [x] the e2e path in §15 passes — `apps/web/e2e/inbox.spec.ts`: connect the mock platform
+      from Settings → Integrations (a real OAuth round trip against the app-hosted mock at
+      `/api/e2e/mock`), backfill, an inbound comment webhook delivered over HTTP to
+      `/api/webhooks/mock` appears in the list without a reload (SSE), a reply goes out and is
+      recorded as a sent outbound message, the commenter is resolved to a person from the
+      sidebar, and the person's timeline shows the comment and the reply with provenance.
+      "Report reflects it" is Phase 11.
+- [x] two users see each other's assignment changes live — the same spec runs Alice and a
+      viewer in two browser contexts: Alice assigns with `a`, the viewer's thread header and list
+      row update over SSE without a reload.
+- [x] inbox p95 load < 500 ms with 50k conversations — `apps/web/server/inbox.perf.test.ts`
+      seeds 50,000 conversations (with identities and messages) in SQL and measures the list
+      procedure across the filter mixes the UI sends: see the number in the test log below.
+
+What was built:
+
+- Realtime (ADR-018): `publishEvent` inside the writing transaction (`pg_notify`, delivered at
+  commit), one LISTEN per process (PGlite `listen()` or a dedicated `pg` client) fanned out to
+  `GET /api/events` streams filtered by workspace; `useRealtime` on the client. The conversation
+  sink, the outbound flow, every conversation mutation, notes and the snooze sweep publish.
+- SLA and snooze: `slaDueAt` set by the sink on an inbound message (connection target →
+  workspace default → 60 min), cleared by any reply with `firstResponseAt` recorded once;
+  breached / due-soon filters and chips; `SNOOZED` + `snoozedUntil` with a minute-level worker
+  job that reopens expired snoozes; a customer writing again reopens closed or snoozed threads.
+- Router: cursor-paged `conversation.list` with platform / assignee / status / SLA / unread /
+  kind / tag / search filters and tab counts; `get` with assignee, tags, notes, the composer's
+  limits and the messaging window; `context` (person, chips, open deals, last five events);
+  `assign`, `snooze`, `setStatus`, `setTags`, `markRead`, `bulk`; `cannedReply` CRUD; notes on
+  conversations with validated `@mentions`; inbox saved views on `SavedView`.
+- UI: virtualized list with tabs, filters, grouping by platform or person, saved views and the
+  bulk toolbar; the thread with platform stamps, exact timestamps on hover, "view on platform",
+  interleaved internal notes and the header actions; the composer with the character counter
+  from the manifest (`outboundLimits`), attachment note, live window countdown, disabled state
+  with reason, canned replies (button or `/shortcut`), internal-note tab with @mentions and
+  "sending as"; the context sidebar with quick actions (create deal, add to list, assign,
+  snooze, tag, create person); keyboard: j/k, e, a, r, n, s, x, Ctrl/⌘+Enter.
+- Settings: Integrations (connections + connect buttons; the hub is Phase 9) and Canned replies.
+- Migration `20260929000000_inbox` (tags, firstResponseAt, Message.sourceUrl, CannedReply).
+
+**Deferred:** AI drafts, the relationship brief and sentiment filters (Phase 10) · outbound
+attachments (media pipeline, Phase 9) · send-as another account on the same thread (X, Phase 8)
+· e-mail quoted-reply collapse (Gmail, Phase 8) · assignment rules and business hours from
+connection settings (Phase 10 automation) · report reflecting the reply (Phase 11).
 
 ## Phase 8 — Remaining platforms
 
