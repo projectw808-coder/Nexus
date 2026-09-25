@@ -129,3 +129,6 @@ export {
   listConnectionsForTokenSweep,
 } from './sync/connections.ts';
 export type { CreateConnectionInput, ConnectionRow } from './sync/connections.ts';
+
+// ── Phase 6: identity resolution and the unified timeline (§10, §6.3, ADR-017) ──
+export * from './identity/index.ts';

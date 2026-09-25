@@ -4,7 +4,13 @@
  * Lives here because raw SQL is only allowed inside packages/db.
  */
 import { createTenancy } from '../tenancy.ts';
-import type { TenantRuntime } from '../scoped.ts';
+import type { Actor, TenantRuntime } from '../scoped.ts';
+import { loadAttributes } from '../objects/attributes.ts';
+import { createRecord } from '../objects/records.ts';
+import { upsertIdentity } from '../identity/identities.ts';
+import { linkIdentity } from '../identity/resolve.ts';
+import { personAttributes } from '../identity/subjects.ts';
+import { emitTimelineEvent } from '../identity/timeline.ts';
 
 export async function seedE2eWorkspace(
   runtime: TenantRuntime,
@@ -122,5 +128,236 @@ export async function seedE2eWorkspace(
       }),
     );
   }
+  await seedIdentityFixtures(runtime, { workspaceId: ws.id, userId: alice.id });
   return { created: true, workspaceId: ws.id, widgetTypeId: widget.id };
+}
+
+/**
+ * Phase 6 fixtures (spec §16 acceptance): "Jordan Rivera" with five channel identities and a
+ * timeline spread across them, a look-alike "J. Rivera" waiting in the merge queue, and an
+ * unresolved TikTok account with a history of its own.
+ */
+async function seedIdentityFixtures(
+  runtime: TenantRuntime,
+  ids: { workspaceId: string; userId: string },
+): Promise<void> {
+  const actor: Actor = {
+    workspaceId: ids.workspaceId,
+    userId: ids.userId,
+    role: 'OWNER',
+    grants: [],
+  };
+  await runtime.withTenant(actor, async (db) => {
+    const pa = await personAttributes(db);
+    const attrs = await loadAttributes(db, pa.objectTypeId);
+    const jordan = await createRecord(db, actor, {
+      objectTypeId: pa.objectTypeId,
+      attributes: attrs,
+      input: { name: 'Jordan Rivera', email: 'jordan@rivera.dev', phone: '+15551230100' },
+    });
+    const lookalike = await createRecord(db, actor, {
+      objectTypeId: pa.objectTypeId,
+      attributes: attrs,
+      input: { name: 'J. Rivera', title: 'Founder' },
+    });
+    const at = (d: string) => new Date(`2026-09-${d}T09:00:00Z`);
+    const seeds: {
+      platform: 'FACEBOOK' | 'INSTAGRAM' | 'X' | 'LINKEDIN' | 'TIKTOK';
+      externalId: string;
+      handle?: string;
+      email?: string;
+      phone?: string;
+      method: 'EXACT_EMAIL' | 'PHONE' | 'HANDLE_MATCH' | 'MANUAL';
+      confidence: number;
+      day: string;
+      summary: string;
+      type: 'MESSAGE' | 'COMMENT' | 'MENTION';
+    }[] = [
+      {
+        platform: 'FACEBOOK',
+        externalId: 'e2e_fb_jordan',
+        email: 'jordan@rivera.dev',
+        method: 'EXACT_EMAIL',
+        confidence: 1,
+        day: '02',
+        summary: 'Sent a message: “Do you ship to Canada?”',
+        type: 'MESSAGE',
+      },
+      {
+        platform: 'INSTAGRAM',
+        externalId: 'e2e_ig_jordan',
+        handle: 'jordan.rivera',
+        method: 'HANDLE_MATCH',
+        confidence: 0.85,
+        day: '04',
+        summary: 'Commented: “Love the new roast!”',
+        type: 'COMMENT',
+      },
+      {
+        platform: 'X',
+        externalId: 'e2e_x_jordan',
+        handle: 'jordan.rivera',
+        method: 'HANDLE_MATCH',
+        confidence: 0.85,
+        day: '01',
+        summary: 'Mentioned you: “@acme best espresso in town”',
+        type: 'MENTION',
+      },
+      {
+        platform: 'LINKEDIN',
+        externalId: 'e2e_li_jordan',
+        phone: '+15551230100',
+        method: 'PHONE',
+        confidence: 1,
+        day: '05',
+        summary: 'Sent a message: “Can we talk wholesale?”',
+        type: 'MESSAGE',
+      },
+      {
+        platform: 'TIKTOK',
+        externalId: 'e2e_tt_jordan',
+        handle: 'jordan.rivera',
+        method: 'MANUAL',
+        confidence: 1,
+        day: '03',
+        summary: 'Commented: “Recipe please!”',
+        type: 'COMMENT',
+      },
+    ];
+    for (const sd of seeds) {
+      const idn = await upsertIdentity(db, {
+        workspaceId: ids.workspaceId,
+        platform: sd.platform,
+        externalId: sd.externalId,
+        seenAt: at(sd.day),
+        handle: sd.handle ?? null,
+        displayName: 'Jordan Rivera',
+        email: sd.email ?? null,
+        phone: sd.phone ?? null,
+      });
+      await emitTimelineEvent(db, {
+        workspaceId: ids.workspaceId,
+        dedupeKey: `e2e:${sd.externalId}`,
+        type: sd.type,
+        occurredAt: at(sd.day),
+        identityId: idn.id,
+        actorIdentityId: idn.id,
+        platform: sd.platform,
+        summary: sd.summary,
+        payload: { kind: 'e2e' },
+      });
+      await linkIdentity(db, actor, {
+        identityId: idn.id,
+        personRecordId: jordan.id,
+        method: sd.method,
+        confidence: sd.confidence,
+        evidence: {
+          score: sd.confidence,
+          signals:
+            sd.method === 'EXACT_EMAIL'
+              ? [
+                  {
+                    kind: 'EXACT_EMAIL',
+                    tier: 1,
+                    weight: 1,
+                    method: 'EXACT_EMAIL',
+                    label: 'Both have the e-mail jordan@rivera.dev',
+                    left: 'jordan@rivera.dev',
+                    right: 'jordan@rivera.dev',
+                  },
+                ]
+              : sd.method === 'PHONE'
+                ? [
+                    {
+                      kind: 'PHONE',
+                      tier: 1,
+                      weight: 1,
+                      method: 'PHONE',
+                      label: 'Both have the phone number +15551230100',
+                      left: '+15551230100',
+                      right: '+15551230100',
+                    },
+                  ]
+                : sd.method === 'HANDLE_MATCH'
+                  ? [
+                      {
+                        kind: 'HANDLE_MATCH',
+                        tier: 2,
+                        weight: 0.85,
+                        method: 'HANDLE_MATCH',
+                        label: `Same handle @jordan.rivera on ${sd.platform} and INSTAGRAM, corroborated by the display name "jordan rivera"`,
+                        left: { platform: sd.platform, handle: 'jordan.rivera' },
+                        right: { platform: 'INSTAGRAM', handle: 'jordan.rivera' },
+                      },
+                    ]
+                  : [],
+          ...(sd.method === 'MANUAL' ? { note: 'Linked by Alice E2E' } : {}),
+        },
+        confirmed: sd.method === 'MANUAL',
+      });
+    }
+    const lookalikeIdentity = await upsertIdentity(db, {
+      workspaceId: ids.workspaceId,
+      platform: 'X',
+      externalId: 'e2e_x_jrivera',
+      seenAt: at('06'),
+      handle: 'j_rivera',
+      displayName: 'J. Rivera',
+    });
+    await linkIdentity(db, actor, {
+      identityId: lookalikeIdentity.id,
+      personRecordId: lookalike.id,
+      method: 'MANUAL',
+      confidence: 1,
+      evidence: { score: 1, signals: [], note: 'Linked by Alice E2E' },
+      confirmed: true,
+    });
+    await db.mergeSuggestion.create({
+      data: {
+        workspaceId: ids.workspaceId,
+        leftRecordId: lookalike.id,
+        rightRecordId: jordan.id,
+        score: 0.4,
+        signals: {
+          score: 0.4,
+          method: 'NAME_FUZZY',
+          signals: [
+            {
+              kind: 'NAME_FUZZY',
+              tier: 3,
+              weight: 0.4,
+              method: 'NAME_FUZZY',
+              label: 'Names "j rivera" and "jordan rivera" are 62% similar',
+              left: { name: 'j rivera' },
+              right: { name: 'jordan rivera' },
+            },
+          ],
+        },
+        status: 'PENDING',
+      },
+    });
+    const mystery = await upsertIdentity(db, {
+      workspaceId: ids.workspaceId,
+      platform: 'TIKTOK',
+      externalId: 'e2e_tt_mystery',
+      seenAt: at('07'),
+      handle: 'mystery.guest',
+      displayName: 'Mystery Guest',
+    });
+    for (const [day, summary] of [
+      ['06', 'Commented: “Is this gluten free?”'],
+      ['07', 'Commented: “Following for the answer”'],
+    ] as const)
+      await emitTimelineEvent(db, {
+        workspaceId: ids.workspaceId,
+        dedupeKey: `e2e:mystery:${day}`,
+        type: 'COMMENT',
+        occurredAt: at(day),
+        identityId: mystery.id,
+        actorIdentityId: mystery.id,
+        platform: 'TIKTOK',
+        summary,
+        payload: { kind: 'e2e' },
+      });
+  });
 }
