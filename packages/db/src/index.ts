@@ -93,3 +93,39 @@ export type {
   RowError,
   Preview,
 } from './objects/imports.ts';
+
+// ── Phase 4: connector runtime stores ───────────────────────────────────────
+export { createVault } from './vault.ts';
+export type { Vault, VaultDb, VaultReadResult } from './vault.ts';
+export {
+  persistRawItems,
+  pendingNormalization,
+  contentHashOf,
+  stableStringify,
+} from './sync/raw-store.ts';
+export type { RawInput, PersistRawResult } from './sync/raw-store.ts';
+export { loadCursor, saveCursor, clearCursor } from './sync/cursors.ts';
+export type { CursorState } from './sync/cursors.ts';
+export { startRun, progressRun, finishRun, cancelStaleRuns } from './sync/runs.ts';
+export {
+  recordWebhookEvent,
+  recordSystemWebhookEvent,
+  recordUnroutedWebhookEvent,
+  markWebhookProcessed,
+  unprocessedWebhookEvents,
+} from './sync/webhook-events.ts';
+export type { WebhookEventInput } from './sync/webhook-events.ts';
+export { recordDeadLetter, listDeadLetters, markReplayed } from './sync/dead-letters.ts';
+export { recordIntegrationError, toIntegrationErrorClass } from './sync/errors.ts';
+export {
+  systemActorFor,
+  upsertConnection,
+  getConnection,
+  setConnectionStatus,
+  touchConnectionSync,
+  updateConnectionSettings,
+  findConnectionForWebhook,
+  listSchedulableConnections,
+  listConnectionsForTokenSweep,
+} from './sync/connections.ts';
+export type { CreateConnectionInput, ConnectionRow } from './sync/connections.ts';

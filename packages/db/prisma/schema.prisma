@@ -299,6 +299,13 @@ enum IntegrationErrorClass {
   UNKNOWN
 }
 
+enum VaultKind {
+  OAUTH_TOKEN
+  API_KEY
+  WEBHOOK_SECRET
+  SIGNING_SECRET
+}
+
 enum ApiKeyScope {
   READ
   WRITE
@@ -389,6 +396,9 @@ model Workspace {
   outboundWebhookSubscriptions OutboundWebhookSubscription[]
   outboundWebhookDeliveries    OutboundWebhookDelivery[]
   dataSubjectRequests          DataSubjectRequest[]
+  workspaceKeys                WorkspaceKey[]
+  vaultEntries                 VaultEntry[]
+  deadLetters                  DeadLetter[]
 }
 
 /// A person who signs in. Not tenant-scoped: a User belongs to many
@@ -1194,6 +1204,7 @@ model Connection {
   integrationErrors IntegrationError[]
   conversations     Conversation[]
   timelineEvents    TimelineEvent[]
+  deadLetters       DeadLetter[]
 
   @@unique([workspaceId, platform, accountExternalId])
   @@index([workspaceId, status])
@@ -1532,6 +1543,76 @@ model PlatformComplianceNote {
   deletedAt     DateTime?
 
   @@unique([platform, key])
+}
+
+/// Per-workspace data key for envelope encryption (§5.4), wrapped by the KMS master key.
+/// Several versions may coexist during a master-key rotation; the newest un-retired one
+/// encrypts new entries. `wrappedKey` is never a plaintext key.
+model WorkspaceKey {
+  id          String    @id @default(uuid())
+  workspaceId String
+  keyVersion  Int
+  wrappedKey  String
+  masterKeyId String
+  createdAt   DateTime  @default(now())
+  retiredAt   DateTime?
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  entries   VaultEntry[]
+
+  @@unique([workspaceId, keyVersion])
+}
+
+/// TokenVault entry (§5.4): AES-256-GCM `{ciphertext, iv, tag}` under a workspace data key.
+/// The row id is the handle stored on `Connection.tokenRef` / `webhookSecretRef`. The
+/// plaintext is never returned over any API; only the vault module decrypts it.
+model VaultEntry {
+  id          String    @id @default(uuid())
+  workspaceId String
+  kind        VaultKind
+  ciphertext  String
+  iv          String
+  tag         String
+  keyId       String
+  /// Rotation counter.
+  version     Int       @default(1)
+  expiresAt   DateTime?
+  rotatedAt   DateTime  @default(now())
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  key       WorkspaceKey @relation(fields: [keyId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, kind])
+  @@index([keyId])
+}
+
+/// Dead-letter queue (§9.2): a job that exhausted its retries, kept with its payload for
+/// one-click replay from the health console or `pnpm nexus dlq replay`. Log table: no deletedAt.
+model DeadLetter {
+  id           String                @id @default(uuid())
+  workspaceId  String
+  connectionId String?
+  queue        String
+  jobName      String
+  payload      Json
+  errorClass   IntegrationErrorClass @default(UNKNOWN)
+  errorCode    String
+  errorMessage String
+  attempts     Int
+  failedAt     DateTime              @default(now())
+  replayedAt   DateTime?
+  replayJobId  String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection Connection? @relation(fields: [connectionId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, replayedAt, failedAt(sort: Desc)])
+  @@index([connectionId])
 }
 
 // =============================================================================

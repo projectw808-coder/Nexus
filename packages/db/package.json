@@ -22,6 +22,7 @@
     "@auth/prisma-adapter": "^2.11.3",
     "@electric-sql/pglite": "0.5.8",
     "@electric-sql/pglite-pgvector": "^0.0.9",
+    "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
