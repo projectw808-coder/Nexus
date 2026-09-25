@@ -1,0 +1,9 @@
+{
+  "message_id": "msg_9a8b7c6d5e4f",
+  "conversation_id": "conv_customer_open_id_44221",
+  "from_user_id": "customer_open_id_44221",
+  "to_user_id": "biz_acct_1",
+  "content": { "text": "Hi, do you ship the fall collection internationally?" },
+  "create_time": 1758020400,
+  "is_from_customer": true
+}
