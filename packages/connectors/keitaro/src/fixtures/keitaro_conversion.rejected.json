@@ -1,0 +1,19 @@
+{
+  "conversion_id": 48214,
+  "subid": "5f3a1c9e8b2d",
+  "tid": "tx_1",
+  "status": "rejected",
+  "previous_status": "sale",
+  "payout": 0,
+  "currency": "usd",
+  "campaign": { "id": 11, "name": "Spring Promo" },
+  "source": { "id": 22, "name": "push-network" },
+  "offer": { "id": 33, "name": "Weight Loss Offer" },
+  "affiliate_network": { "id": 44, "name": "MaxBounty" },
+  "stream": null,
+  "landing": null,
+  "country": "US",
+  "sub_id_1": "lead@example.com",
+  "click_datetime": "2026-09-24T10:00:00.000Z",
+  "postback_datetime": "2026-09-24T11:00:00.000Z"
+}
