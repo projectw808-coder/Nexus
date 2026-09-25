@@ -2,15 +2,17 @@ import { PageHeader } from '@/components/page-header';
 import { PermissionDenied } from '@/components/permission-denied';
 import { api } from '@/lib/api';
 import { isCode } from '@/lib/errors';
+import { canWriteRecords } from '@/lib/roles';
+import { requireSessionUser } from '@/lib/session';
 import { getWorkspace } from '@/lib/workspace';
 import { InboxView } from './inbox-view';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * Phase 5 scaffold (§16): a bare conversation list with a thread pane and a composer that
- * enforces the platform's messaging window. The full inbox (triage, assignment, SLA, snooze)
- * is Phase 7; this page exists so a DM from a phone can be seen and answered end to end.
+ * The unified inbox (§12.2.A): three panes, per-platform tabs, assignment, statuses, snooze,
+ * SLA timers, internal notes, canned replies, the platform-aware composer, the context
+ * sidebar (Phase 6), SSE realtime, the keyboard model and bulk triage.
  */
 export default async function InboxPage({
   params,
@@ -21,11 +23,12 @@ export default async function InboxPage({
 }) {
   const { slug } = await params;
   const { c } = await searchParams;
+  const user = await requireSessionUser();
   const workspace = await getWorkspace(slug);
   const client = await api(workspace.slug);
-  let conversations;
+  let connections;
   try {
-    conversations = await client.conversation.list();
+    connections = await client.connection.list();
   } catch (e) {
     if (isCode(e, 'FORBIDDEN')) {
       return (
@@ -39,20 +42,30 @@ export default async function InboxPage({
     }
     throw e;
   }
-  const connections = await client.connection.list().catch(() => []);
-  const selected = c && conversations.some((x) => x.id === c) ? c : (conversations[0]?.id ?? null);
+  const [members, canned, views] = await Promise.all([
+    client.member.list().catch(() => []),
+    client.cannedReply.list().catch(() => []),
+    client.view.list({ scope: 'inbox' }).catch(() => []),
+  ]);
+  const writes = canWriteRecords(workspace.role);
 
   return (
-    <div className="flex h-full flex-col gap-6">
+    <div className="flex h-full min-h-0 flex-col gap-4">
       <PageHeader
         title="Inbox"
-        description="Every DM, comment thread and mention from your connected accounts, newest first. Replies go out through the platform."
+        description="Every DM, comment thread and mention from your connected accounts, live. j/k move, r reply, a assign, s snooze, e close, n note."
       />
       <InboxView
         slug={workspace.slug}
-        initialConversations={conversations}
-        initialSelectedId={selected}
-        hasConnections={connections.length > 0}
+        selfId={user.id}
+        initialSelectedId={c ?? null}
+        connections={connections}
+        members={members}
+        canned={canned}
+        views={views}
+        canTriage={writes}
+        canNote={writes}
+        canWriteRecords={writes}
       />
     </div>
   );
