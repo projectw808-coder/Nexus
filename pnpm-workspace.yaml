@@ -2,6 +2,7 @@ packages:
   - apps/*
   - packages/*
   - packages/connectors/*
+  - tooling/cli
 
 # Packages allowed to run install scripts (pnpm ignores the rest by design).
 allowBuilds:

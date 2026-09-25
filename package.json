@@ -23,7 +23,8 @@
     "db:drift": "pnpm --filter @nexus/db drift",
     "db:seed": "pnpm --filter @nexus/db seed",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "nexus": "tsx tooling/cli/src/index.ts"
   },
   "devDependencies": {
     "@next/eslint-plugin-next": "16.3.6",
@@ -31,6 +32,7 @@
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "3.9.9",
+    "tsx": "^4.23.15",
     "turbo": "2.11.3",
     "typescript": "5.9.3",
     "typescript-eslint": "^8.70.1"

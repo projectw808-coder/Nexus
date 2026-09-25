@@ -1,0 +1,29 @@
+{
+  "name": "@nexus/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Operator CLI (`pnpm nexus …`): replay pipeline stages, inspect and replay dead letters, sweep tokens, scaffold a connector.",
+  "bin": {
+    "nexus": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nexus/config": "workspace:*",
+    "@nexus/connector-sdk": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "@nexus/db": "workspace:*",
+    "@nexus/sync": "workspace:*",
+    "@nexus/telemetry": "workspace:*",
+    "tsx": "^4.23.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
