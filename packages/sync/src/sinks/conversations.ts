@@ -16,6 +16,9 @@ import type {
   Platform,
 } from '@nexus/connector-sdk';
 import {
+  publishEvent,
+  slaDueFor,
+  slaMinutesFor,
   systemActorFor,
   upsertIdentity as upsertIdentityRow,
   type ConversationKind,
@@ -122,6 +125,7 @@ export function createConversationSink(
       const touched = new Set<string>();
 
       await runtime.withTenant(actor, async (db) => {
+        const slaMinutes = await slaMinutesFor(db, batch.connectionId);
         const identityIds = new Map<string, string>();
         for (const p of persons.values())
           identityIds.set(
@@ -265,6 +269,7 @@ export function createConversationSink(
             attachments: m.attachments as Prisma.InputJsonValue,
             sentAt: m.sentAt,
             replyWindowExpiresAt: m.replyWindowExpiresAt ?? null,
+            sourceUrl: m.sourceUrl ?? null,
             raw: m.raw as Prisma.InputJsonValue,
           };
           if (existing) {
@@ -288,7 +293,13 @@ export function createConversationSink(
             stats.messages += 1;
             const conv = await db.conversation.findUniqueOrThrow({
               where: { id: conversationId },
-              select: { lastMessageAt: true, identityId: true, status: true },
+              select: {
+                lastMessageAt: true,
+                identityId: true,
+                status: true,
+                slaDueAt: true,
+                firstResponseAt: true,
+              },
             });
             await db.conversation.update({
               where: { id: conversationId },
@@ -297,9 +308,20 @@ export function createConversationSink(
                 ...(m.direction === 'inbound'
                   ? {
                       unreadCount: { increment: 1 },
-                      ...(conv.status === 'CLOSED' ? { status: 'OPEN' as const } : {}),
+                      // A customer writing again reopens a closed or snoozed thread…
+                      ...(conv.status === 'CLOSED' || conv.status === 'SNOOZED'
+                        ? { status: 'OPEN' as const, snoozedUntil: null }
+                        : {}),
+                      // …and starts the SLA clock if none is running.
+                      ...(conv.slaDueAt === null && slaMinutes
+                        ? { slaDueAt: slaDueFor(m.sentAt, slaMinutes) }
+                        : {}),
                     }
-                  : {}),
+                  : {
+                      // Our side answered: the clock stops, the first response is recorded once.
+                      slaDueAt: null,
+                      ...(conv.firstResponseAt ? {} : { firstResponseAt: m.sentAt }),
+                    }),
                 ...(!conv.identityId && authorIdentityId
                   ? { identity: { connect: { id: authorIdentityId } } }
                   : {}),
@@ -308,6 +330,12 @@ export function createConversationSink(
           }
           touched.add(conversationId);
         }
+        if (touched.size)
+          await publishEvent(db, {
+            workspaceId: batch.workspaceId,
+            topic: 'conversation.changed',
+            payload: { ids: [...touched], connectionId: batch.connectionId },
+          });
       });
       if (touched.size)
         opts.onChange?.({

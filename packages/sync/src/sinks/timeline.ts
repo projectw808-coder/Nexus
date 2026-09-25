@@ -10,6 +10,7 @@
 import type { CanonicalEntity, CanonicalMessage } from '@nexus/connector-sdk';
 import {
   emitTimelineEvent,
+  publishEvent,
   systemActorFor,
   upsertIdentity,
   type TenantRuntime,
@@ -76,6 +77,7 @@ export function createTimelineSink(
       const actor = systemActorFor(batch.workspaceId, batch.connectionId);
       await runtime.withTenant(actor, async (db) => {
         const identityCache = new Map<string, string>();
+        const createdOn = new Set<string>();
         const identityIdFor = async (externalId: string, seenAt: Date): Promise<string> => {
           const cached = identityCache.get(externalId);
           if (cached) return cached;
@@ -280,6 +282,13 @@ export function createTimelineSink(
           }
           if (created) stats.events += 1;
         }
+        for (const id of identityCache.values()) createdOn.add(id);
+        if (stats.events && createdOn.size)
+          await publishEvent(db, {
+            workspaceId: batch.workspaceId,
+            topic: 'timeline.changed',
+            payload: { identityIds: [...createdOn], connectionId: batch.connectionId },
+          });
       });
     },
   };
