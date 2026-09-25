@@ -59,7 +59,7 @@ export default tseslint.config(
     settings: { next: { rootDir: 'apps/web' } },
   },
   {
-    files: ['**/*.js', '**/*.mjs', 'tooling/**'],
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs', 'tooling/**'],
     ...tseslint.configs.disableTypeChecked,
   },
   {

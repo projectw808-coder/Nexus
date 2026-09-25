@@ -46,6 +46,10 @@ const STATIC_ROUTES = [
   '/w/e2e/settings/objects',
   '/w/e2e/settings/objects/widget',
   '/w/e2e/settings/audit',
+  '/w/e2e/settings/integrations',
+  '/w/e2e/settings/canned-replies',
+  '/w/e2e/inbox',
+  '/w/e2e/duplicates',
   '/status',
 ];
 

@@ -66,6 +66,8 @@ type Ids = {
   person2Id: string;
   company2Id: string;
   deal2Id: string;
+  // Phase 7
+  cannedReplyId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -580,6 +582,51 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ mergeId: ids.mergeId }),
     crossInput: (ids) => ({ mergeId: ids.mergeId }),
   },
+  // Phase 7 — the unified inbox
+  'conversation.context': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId }),
+    crossInput: (ids) => ({ id: ids.conversationId }),
+  },
+  'conversation.assign': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId, userId: null }),
+    crossInput: (ids) => ({ id: ids.conversationId, userId: null }),
+  },
+  'conversation.snooze': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId, until: new Date(Date.now() + 3600_000) }),
+    crossInput: (ids) => ({ id: ids.conversationId, until: new Date(Date.now() + 3600_000) }),
+  },
+  'conversation.setTags': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId, tags: ['vip'] }),
+    crossInput: (ids) => ({ id: ids.conversationId, tags: ['pwned'] }),
+  },
+  'conversation.bulk': {
+    tier: 'tenant',
+    input: (ids) => ({ ids: [ids.conversationId], action: { type: 'read' } }),
+    crossInput: (ids) => ({
+      ids: [ids.conversationId],
+      action: { type: 'status', status: 'SPAM' },
+    }),
+    crossExpect: 'ok',
+  },
+  'cannedReply.list': { tier: 'tenant', input: () => undefined },
+  'cannedReply.create': {
+    tier: 'tenant',
+    input: () => ({ title: `Thanks ${Date.now()}`, body: 'Thanks for reaching out!' }),
+  },
+  'cannedReply.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.cannedReplyId, body: 'Updated body' }),
+    crossInput: (ids) => ({ id: ids.cannedReplyId, body: 'Pwned' }),
+  },
+  'cannedReply.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.cannedReplyId }),
+    crossInput: (ids) => ({ id: ids.cannedReplyId }),
+  },
   'connection.disconnect': {
     tier: 'tenant',
     input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
@@ -798,7 +845,12 @@ async function freshIds(): Promise<Ids> {
       };
     },
   );
+  const canned = await owner.cannedReply.create({
+    title: `Seed reply ${Date.now()}`,
+    body: 'Hello from the seed',
+  });
   return {
+    cannedReplyId: canned.id,
     ...p6,
     person2Id: person2.id,
     company2Id: company2.id,

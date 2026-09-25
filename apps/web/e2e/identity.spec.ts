@@ -76,7 +76,7 @@ test.describe('identity resolution & the unified timeline', () => {
     await expect(page.getByTestId('identity-chip')).toHaveCount(5);
     await expect(timeline).not.toContainText('Merged with a duplicate record');
     // The look-alike is active again, on its own page.
-    await page.getByTestId('merge-panel').getByRole('link', { name: 'J. Rivera' }).click();
+    await page.getByTestId('merge-panel').getByRole('link', { name: 'J. Rivera' }).first().click();
     await expect(page.getByRole('heading', { level: 1 })).toContainText('J. Rivera');
     await expect(page.getByTestId('merged-banner')).toHaveCount(0);
   });

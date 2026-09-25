@@ -22,7 +22,8 @@ export default defineConfig({
     ...devices['Desktop Chrome'],
   },
   webServer: {
-    command: `pnpm e2e:seed && pnpm exec next start -p ${PORT}`,
+    // Seeds, frees the port (an orphaned server would share it on Windows), then owns `next start`.
+    command: `node e2e/server.cjs`,
     url: `http://localhost:${PORT}/sign-in`,
     timeout: 240_000,
     reuseExistingServer: false,
@@ -34,6 +35,9 @@ export default defineConfig({
       SMTP_URL: '',
       OTEL_EXPORTER_OTLP_ENDPOINT: '',
       REDIS_URL: 'redis://localhost:6399',
+      E2E_PORT: String(PORT),
+      // The mock platform is served by the app itself under E2E_AUTH_BYPASS (server/e2e-mock.ts).
+      MOCK_PLATFORM_URL: `http://localhost:${PORT}/api/e2e/mock`,
     },
   },
 });

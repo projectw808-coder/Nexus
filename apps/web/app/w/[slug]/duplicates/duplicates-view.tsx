@@ -99,9 +99,8 @@ export function DuplicatesView({
           />
         ) : (
           <ul
-            role="listbox"
+            role="list"
             aria-label="Merge suggestions"
-            aria-activedescendant={current ? `sg-${current.id}` : undefined}
             tabIndex={0}
             onKeyDown={onKey}
             className="divide-y divide-[var(--border-hairline)] rounded-[var(--radius-card)] border border-hairline bg-card outline-none focus-visible:shadow-[var(--focus-ring)]"
@@ -116,8 +115,8 @@ export function DuplicatesView({
                 <li
                   key={s.id}
                   id={`sg-${s.id}`}
-                  role="option"
-                  aria-selected={selected}
+                  role="listitem"
+                  aria-current={selected ? 'true' : undefined}
                   data-testid="suggestion"
                   className={`flex flex-col gap-2 px-3 py-2 text-[var(--text-sm)] ${selected ? 'bg-raised' : ''}`}
                   onClick={() => setCursor(idx)}
@@ -161,7 +160,7 @@ export function DuplicatesView({
                         e.stopPropagation();
                         setOpen(isOpen ? null : s.id);
                       }}
-                      className="text-[var(--text-xs)] text-link underline-offset-2 hover:underline"
+                      className="inline-flex min-h-6 items-center px-1 text-[var(--text-xs)] text-link underline-offset-2 hover:underline"
                     >
                       why?
                     </button>
