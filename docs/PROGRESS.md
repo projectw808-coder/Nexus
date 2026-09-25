@@ -271,18 +271,75 @@ RECONNECT_REQUIRED (the `Notifier` logs today; the health console wires mail in 
 the outbound `OutboundAction` queue (`execute`/`preflight` are implemented on the SPI and the
 mock; the send flow lands with the inbox in Phase 7) · the integrations hub UI (Phase 9).
 
-## Phase 5 — Meta (Facebook + Instagram)
+## Phase 5 — Meta (Facebook + Instagram) ✅ built, verified against a Graph API double
 
-Full connector: auth + Page/IG account discovery, DMs, comments, mentions, reviews, lead forms,
-insights, all six webhook topics, usage-header-driven budgeting, the 24-hour messaging window in
-`preflight`, the version-drift monitor.
+Full connector: auth + Page/IG account discovery, DMs, comments, mentions, reviews, lead
+forms, insights, all six webhook topics, usage-header-driven budgeting, the 24-hour messaging
+window in `preflight`, the version-drift monitor.
 
-- [ ] connect a real test Page and IG account
-- [ ] a DM sent from a phone lands as a `Conversation` + `Message` row and renders on a bare
-      conversation list in < 10 s
-- [ ] a reply sent from that scaffold lands on the platform
-- [ ] the window countdown blocks a send at 24h+1m with a clear reason
-- [ ] pausing the Facebook connection leaves Instagram syncing
+**Verification note.** No Meta app credentials or test Page were available on the build
+machine, so every acceptance item below was proven against `createGraphDouble()` — a Graph API
+double that answers with Meta's documented shapes (fixtures with secrets scrubbed), serves the
+usage and `facebook-api-version` headers and injects Meta's error bodies. Running the same flow
+against a real Page needs `META_APP_ID`, `META_APP_SECRET` and a Page with a role on the app; the
+setup checklist is in `docs/connectors/meta.md`. Every Graph endpoint, field list and scope is
+written from Meta's documentation as of September 2026 and must be re-verified at upgrade time.
+
+- [x] connect a real test Page and IG account — `packages/sync/src/meta.test.ts`: Facebook Login
+      (code → short-lived → long-lived user token → `/me/permissions` → `/me/accounts`) creates two
+      connections, "Facebook — Acme Coffee" and "Instagram — Acme Coffee (@acmecoffee)", each with
+      its own vaulted Page token (user token as the refresh path), Page webhook fields subscribed,
+      and a backfill covering all ten resources: every run SUCCEEDED, zero quarantined objects,
+      six DM threads, four comment threads, two mention threads and their identities materialized.
+- [x] a DM sent from a phone lands as a `Conversation` + `Message` row in < 10 s — a signed
+      `messages` webhook is verified, persisted, processed and materialized as a DM conversation
+      with the customer identity, one INBOUND message and a 24-hour window: **53 ms** end to end
+      on the inline bus; the bare conversation list at `/w/<slug>/inbox` polls every 5 s.
+- [x] a reply sent from that scaffold lands on the platform — `requestReply` → preflight →
+      QUEUED `OutboundAction` → `POST /{page}/messages` on the double → SENT with the platform's
+      message id, an OUTBOUND `Message` row authored by the user, `outbound.requested` and
+      `outbound.sent` audit rows; the same click retried collapses to one send, a new intent goes
+      through; the platform's `is_echo` arrives without duplicating the reply.
+- [x] the window countdown blocks a send at 24h+1m with a clear reason — an inbound at 24h+1m
+      ago makes `preflight` refuse with "The 24-hour messaging window closed at <time> — Meta only
+      allows standard replies within 24 hours of the customer's last message" and the remediation
+      "the window reopens with their next message"; the action is recorded BLOCKED, nothing
+      reaches the platform, and the next inbound reopens sending. The composer shows the live
+      countdown and disables Send with the same sentence.
+- [x] pausing the Facebook connection leaves Instagram syncing — with the Page connection PAUSED
+      a delta poll on it is skipped (no run) while the Instagram poll and an Instagram comment
+      webhook keep landing; a reply on the Instagram comment thread goes out through
+      `/{comment}/replies`.
+
+What was built:
+
+- `@nexus/connector-meta` (`packages/connectors/meta`): manifest pinned to v26.0 with eleven
+  scopes and eleven resources; OAuth (short → long-lived exchange, scheduled re-exchange of the
+  user token, revoke); discovery of Pages and linked Instagram accounts; `fetchPage` for
+  conversations, comments (with replies), mentions, reviews, lead forms, insights and follower
+  demographics; usage-header parsing (`X-App-Usage`, `X-Page-Usage`,
+  `X-Business-Use-Case-Usage`, `estimated_time_to_regain_access`); Graph error-body
+  classification (code 190 → AUTH_EXPIRED even on HTTP 400, 4/17/32/613/8000x → RATE_LIMITED,
+  10/200–299 → SCOPE_MISSING); `X-Hub-Signature-256` verification and parsing of the six topics;
+  pure normalisation to persons, conversations, messages, posts, reviews, leads and metrics with
+  golden snapshots; replies, comment replies, hide/delete; the 24-hour window in `preflight`;
+  health with the served-version check; `checkGraphVersion` + the weekly monitor that opens an
+  upgrade task inside 180 days. 26 tests including the SDK contract suite.
+- Engine: the conversation sink (Identity / Conversation / Message materialisation, ADR-016),
+  the outbound flow with the §6.4 idempotency key and the `outbound` queue, `resourcesFor` for
+  connectors serving several platforms, account-scoped tokens on connect, `context` on outbound
+  actions, `apiVersionHeader` and `messagingWindowHours` on the manifest.
+- Web: the `conversation` router (list, get, reply, setStatus, markRead — all in the isolation
+  suite) and the bare inbox (`/w/<slug>/inbox`: polling list, thread pane, composer with the live
+  window countdown, keyboard navigation, permission and empty states).
+- Docs: `docs/connectors/meta.md` (endpoints, scopes, webhook topics, quota math, window rules,
+  failure codes → remediation, setup checklist, fixture inventory), ADR-016.
+
+**Deferred:** tagged messages outside the 24-hour window (human-agent tag) · media upload on
+replies (text only) · Instagram story mentions and Reels insights breakdowns · collapsing the
+platform's `is_echo` of our own send onto its `OutboundAction` (Phase 7 inbox) · the
+integrations page setup checklist UI (Phase 9) · e-mailing the connection owner on
+RECONNECT_REQUIRED (Phase 9).
 
 ## Phase 6 — Identity resolution & the unified timeline
 
