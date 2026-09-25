@@ -132,3 +132,8 @@ export type { CreateConnectionInput, ConnectionRow } from './sync/connections.ts
 
 // ── Phase 6: identity resolution and the unified timeline (§10, §6.3, ADR-017) ──
 export * from './identity/index.ts';
+
+// ── Phase 7: realtime (LISTEN/NOTIFY → SSE) ─────────────────────────────────
+export { publishEvent, subscribeEvents, closeEventListener, EVENTS_CHANNEL } from './realtime.ts';
+export type { NexusEvent } from './realtime.ts';
+export { slaMinutesFor, slaDueFor, sweepSnoozed, DEFAULT_SLA_MINUTES } from './inbox.ts';

@@ -399,6 +399,7 @@ model Workspace {
   workspaceKeys                WorkspaceKey[]
   vaultEntries                 VaultEntry[]
   deadLetters                  DeadLetter[]
+  cannedReplies                CannedReply[]
 }
 
 /// A person who signs in. Not tenant-scoped: a User belongs to many
@@ -447,6 +448,7 @@ model User {
   apiKeys                      ApiKey[]
   outboundWebhookSubscriptions OutboundWebhookSubscription[]
   dataSubjectRequests          DataSubjectRequest[]
+  cannedReplies                CannedReply[]
 }
 
 model Membership {
@@ -1043,6 +1045,10 @@ model Conversation {
   unreadCount      Int              @default(0)
   /// e.g. the post a comment thread hangs off
   parentExternalId String?
+  /// Free-form triage tags (§12.2.A quick actions).
+  tags             String[]         @default([])
+  /// When the team first replied on this thread; clears the SLA clock.
+  firstResponseAt  DateTime?
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   deletedAt        DateTime?
@@ -1066,6 +1072,7 @@ model Conversation {
   @@index([workspaceId, identityId, lastMessageAt(sort: Desc)])
   @@index([workspaceId, connectionId, lastMessageAt(sort: Desc)])
   @@index([workspaceId, status, snoozedUntil])
+  @@index([workspaceId, slaDueAt])
   @@index([connectionId])
   @@index([identityId])
   @@index([personRecordId])
@@ -1091,6 +1098,8 @@ model Message {
   failureHint          String?
   /// Platform messaging-window enforcement (§8).
   replyWindowExpiresAt DateTime?
+  /// Deep link to the message/comment on the platform, when it has one ("view on platform").
+  sourceUrl            String?
   raw                  Json          @default("{}")
   createdAt            DateTime      @default(now())
   updatedAt            DateTime      @updatedAt
@@ -1632,6 +1641,29 @@ model DeadLetter {
 // =============================================================================
 // §6.5 Automation, AI, audit
 // =============================================================================
+
+/// Saved replies for the composer (§12.2.A): picked by title or typed as /shortcut.
+model CannedReply {
+  id          String    @id @default(uuid())
+  workspaceId String
+  title       String
+  body        String
+  /// Typed as "/shortcut" in the composer; unique per workspace.
+  shortcut    String?
+  /// Limit to one platform, or null for all.
+  platform    Platform?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, shortcut])
+  @@index([workspaceId, platform])
+  @@index([createdById])
+}
 
 model Workflow {
   id          String    @id @default(uuid())

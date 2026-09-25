@@ -23,6 +23,11 @@ export function registerPglite(instance: PGlite): void {
   g.__nexusPglite = instance;
 }
 
+/** The registered PGlite instance, or null on the pg backend. */
+export function getRegisteredPglite(): PGlite | null {
+  return g.__nexusPglite ?? null;
+}
+
 export async function createDdlRunner(): Promise<DdlRunner> {
   const pglite = g.__nexusPglite;
   if (pglite) {
