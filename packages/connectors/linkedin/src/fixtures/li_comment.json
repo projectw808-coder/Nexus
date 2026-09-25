@@ -1,0 +1,9 @@
+{
+  "id": "urn:li:comment:(urn:li:share:7123456789012345678,6987654321098765432)",
+  "object": "urn:li:share:7123456789012345678",
+  "actor": "urn:li:person:AbCdEfGhIj",
+  "message": { "text": "Great update, congrats on the launch!" },
+  "created": 1758704400000,
+  "lastModified": 1758704400000,
+  "parentComment": null
+}

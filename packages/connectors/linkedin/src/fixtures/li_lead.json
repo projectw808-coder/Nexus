@@ -1,0 +1,17 @@
+{
+  "id": "urn:li:leadFormResponse:9988776655",
+  "formId": "urn:li:leadForm:555",
+  "formName": "Book a demo",
+  "owner": "urn:li:organization:123456",
+  "campaign": "urn:li:sponsoredCampaign:424242",
+  "submittedAt": 1758708000000,
+  "testLead": false,
+  "consentToMarketing": true,
+  "answers": [
+    { "questionId": "q1", "question": "First Name", "answer": "Jordan" },
+    { "questionId": "q2", "question": "Last Name", "answer": "Rivera" },
+    { "questionId": "q3", "question": "Email", "answer": "jordan.rivera@example.com" },
+    { "questionId": "q4", "question": "Phone Number", "answer": "+14155550123" },
+    { "questionId": "q5", "question": "Company Name", "answer": "Rivera Consulting" }
+  ]
+}

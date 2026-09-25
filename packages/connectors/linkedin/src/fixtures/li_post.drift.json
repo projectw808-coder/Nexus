@@ -1,0 +1,14 @@
+{
+  "id": "urn:li:share:7123456789012345679",
+  "author": "urn:li:organization:123456",
+  "commentary": "A post shape LinkedIn hasn't sent us before.",
+  "createdAt": 1758700800000,
+  "lifecycleState": "PUBLISHED",
+  "visibility": "PUBLIC",
+  "contentType": "IMAGE",
+  "distribution": {
+    "feedDistribution": "MAIN_FEED",
+    "targetEntities": [],
+    "thirdPartyDistributionChannels": []
+  }
+}

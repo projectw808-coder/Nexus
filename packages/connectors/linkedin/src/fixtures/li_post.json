@@ -1,0 +1,16 @@
+{
+  "id": "urn:li:share:7123456789012345678",
+  "author": "urn:li:organization:123456",
+  "commentary": "We just shipped a new feature for our customers.",
+  "createdAt": 1758700800000,
+  "lastModifiedAt": 1758700800000,
+  "lifecycleState": "PUBLISHED",
+  "visibility": "PUBLIC",
+  "contentType": "IMAGE",
+  "totalSocialActivityCounts": {
+    "numLikes": 42,
+    "numComments": 5,
+    "numShares": 3,
+    "numViews": 1200
+  }
+}
