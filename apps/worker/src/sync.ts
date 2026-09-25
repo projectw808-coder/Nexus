@@ -13,6 +13,7 @@ import {
   handleJob,
   planDeltaPolls,
   requeuePendingNormalization,
+  runMetaVersionMonitor,
   sdkLoggerFrom,
   sweepTokens,
   JOB_NAMES,
@@ -34,12 +35,14 @@ const PIPELINE_QUEUES: { name: QueueName; concurrency: number }[] = [
   { name: QUEUES.syncDelta, concurrency: 4 },
   { name: QUEUES.ingestRaw, concurrency: 8 },
   { name: QUEUES.normalize, concurrency: 4 },
+  { name: QUEUES.outbound, concurrency: 4 },
 ];
 
 export const SYNC_SYSTEM_JOBS = {
   pollPlan: 'sync.poll_plan',
   tokenSweep: 'token.sweep',
   recover: 'sync.recover',
+  metaVersion: 'meta.version_monitor',
 } as const;
 
 export type SyncHost = {
@@ -141,6 +144,11 @@ export function startSyncHost(opts: { redis: IORedis; log: Logger }): SyncHost {
         { every: 60 * 60_000 },
         { name: SYNC_SYSTEM_JOBS.tokenSweep, data: {} },
       );
+      await system.upsertJobScheduler(
+        SYNC_SYSTEM_JOBS.metaVersion,
+        { every: 7 * 24 * 60 * 60_000 },
+        { name: SYNC_SYSTEM_JOBS.metaVersion, data: {} },
+      );
       await system.add(
         SYNC_SYSTEM_JOBS.recover,
         {},
@@ -192,6 +200,13 @@ export async function handleSyncSystemJob(
       }
       log.info({ polls: plan.length }, 'delta polls planned');
       return { polls: plan.length };
+    }
+    case SYNC_SYSTEM_JOBS.metaVersion: {
+      const result = await runMetaVersionMonitor(deps, {
+        feedUrl: loadEnv().META_VERSIONS_FEED_URL ?? null,
+      });
+      log.info(result, 'Meta version monitor finished');
+      return result;
     }
     case SYNC_SYSTEM_JOBS.tokenSweep: {
       const result = await sweepTokens(deps);

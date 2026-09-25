@@ -1,6 +1,7 @@
 import { router, userProcedure } from '../trpc';
 import { auditRouter } from './audit';
 import { connectionRouter } from './connections';
+import { conversationRouter } from './conversations';
 import { exportRouter } from './export';
 import { importRouter } from './imports';
 import { invitationRouter } from './invitation';
@@ -39,6 +40,8 @@ export const appRouter = router({
   task: taskRouter,
   // Phase 4 — connector runtime
   connection: connectionRouter,
+  // Phase 5 — conversations (bare inbox)
+  conversation: conversationRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -45,6 +45,7 @@ async function bullQueues(): Promise<Map<string, Queue> | null> {
       QUEUES.syncDelta,
       QUEUES.ingestRaw,
       QUEUES.normalize,
+      QUEUES.outbound,
     ]) {
       queues.set(
         name,
@@ -98,6 +99,7 @@ async function build(): Promise<SyncDeps> {
       [QUEUES.syncDelta]: (j) => handleJob(holder.deps!, j),
       [QUEUES.ingestRaw]: (j) => handleJob(holder.deps!, j),
       [QUEUES.normalize]: (j) => handleJob(holder.deps!, j),
+      [QUEUES.outbound]: (j) => handleJob(holder.deps!, j),
     },
     onDeadLetter: (job, error) => deadLetterJob(holder.deps!, job, error),
     logger,

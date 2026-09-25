@@ -67,7 +67,7 @@ function itemsFor(slug: string): RailItem[] {
   const base = `/w/${slug}`;
   return [
     { kind: 'link', label: 'Home', href: base, icon: Icon.home, exact: true },
-    { kind: 'planned', label: 'Inbox', phase: 7, icon: Icon.inbox },
+    { kind: 'link', label: 'Inbox', href: `${base}/inbox`, icon: Icon.inbox },
     { kind: 'link', label: 'Records', href: `${base}/records`, icon: Icon.records },
     { kind: 'link', label: 'Lists', href: `${base}/lists`, icon: Icon.lists },
     { kind: 'planned', label: 'Reports', phase: 11, icon: Icon.reports },

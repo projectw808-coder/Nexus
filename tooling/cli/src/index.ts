@@ -66,6 +66,7 @@ async function deps(): Promise<SyncDeps & { bus: InlineBus }> {
       [QUEUES.syncDelta]: (j) => handleJob(holder.d!, j),
       [QUEUES.ingestRaw]: (j) => handleJob(holder.d!, j),
       [QUEUES.normalize]: (j) => handleJob(holder.d!, j),
+      [QUEUES.outbound]: (j) => handleJob(holder.d!, j),
     },
     onDeadLetter: (job, error) => deadLetterJob(holder.d!, job, error),
     logger,

@@ -50,6 +50,7 @@ type Ids = {
   connectionLabel: string;
   integrationErrorId: string;
   deadLetterId: string;
+  conversationId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -440,6 +441,32 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.deadLetterId }),
     crossInput: (ids) => ({ id: ids.deadLetterId }),
   },
+  // Phase 5 — conversations
+  'conversation.list': { tier: 'tenant', input: () => undefined },
+  'conversation.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId }),
+    crossInput: (ids) => ({ id: ids.conversationId }),
+  },
+  'conversation.reply': {
+    tier: 'tenant',
+    input: (ids) => ({
+      id: ids.conversationId,
+      text: 'thanks!',
+      requestNonce: `n-${Date.now()}-${Math.random()}`,
+    }),
+    crossInput: (ids) => ({ id: ids.conversationId, text: 'pwned', requestNonce: 'nonce-cross-1' }),
+  },
+  'conversation.setStatus': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId, status: 'CLOSED' }),
+    crossInput: (ids) => ({ id: ids.conversationId, status: 'SPAM' }),
+  },
+  'conversation.markRead': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.conversationId }),
+    crossInput: (ids) => ({ id: ids.conversationId }),
+  },
   'connection.disconnect': {
     tier: 'tenant',
     input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
@@ -557,7 +584,44 @@ async function freshIds(): Promise<Ids> {
         error: new NexusError('PLATFORM_DOWN'),
         attempts: 6,
       });
-      return { id: c.id, errorId: err.id, deadLetterId: dl.id };
+      const identity = await db.identity.create({
+        data: {
+          workspaceId: seed.acme.id,
+          platform: 'MOCK',
+          externalId: `user_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+          displayName: 'User 7',
+          handle: 'user7',
+        },
+        select: { id: true },
+      });
+      const conversation = await db.conversation.create({
+        data: {
+          workspaceId: seed.acme.id,
+          connectionId: c.id,
+          platform: 'MOCK',
+          kind: 'DM',
+          externalId: `dm:user_7:${Date.now()}`,
+          identityId: identity.id,
+          lastMessageAt: new Date(),
+          unreadCount: 1,
+        },
+        select: { id: true },
+      });
+      await db.message.create({
+        data: {
+          workspaceId: seed.acme.id,
+          conversationId: conversation.id,
+          externalId: `m_${Date.now()}`,
+          direction: 'INBOUND',
+          authorIdentityId: identity.id,
+          body: 'hello?',
+          attachments: [],
+          sentAt: new Date(),
+          deliveryState: 'DELIVERED',
+          replyWindowExpiresAt: new Date(Date.now() + 86_400_000),
+        },
+      });
+      return { id: c.id, errorId: err.id, deadLetterId: dl.id, conversationId: conversation.id };
     },
   );
   return {
@@ -565,6 +629,7 @@ async function freshIds(): Promise<Ids> {
     connectionLabel,
     integrationErrorId: conn.errorId,
     deadLetterId: conn.deadLetterId,
+    conversationId: conn.conversationId,
     spareRecordId: spare.id,
     noteId: note.id,
     taskId: task.id,
