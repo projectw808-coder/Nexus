@@ -400,6 +400,7 @@ model Workspace {
   vaultEntries                 VaultEntry[]
   deadLetters                  DeadLetter[]
   cannedReplies                CannedReply[]
+  keitaroConversionStates      KeitaroConversionState[]
 }
 
 /// A person who signs in. Not tenant-scoped: a User belongs to many
@@ -419,10 +420,10 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  memberships                  Membership[]              @relation("MembershipUser")
-  sentInvitations              Invitation[]              @relation("InvitationInvitedBy")
+  memberships                  Membership[]                  @relation("MembershipUser")
+  sentInvitations              Invitation[]                  @relation("InvitationInvitedBy")
   importJobs                   ImportJob[]
-  invitedMemberships           Membership[]              @relation("MembershipInvitedBy")
+  invitedMemberships           Membership[]                  @relation("MembershipInvitedBy")
   teamMemberships              TeamMember[]
   createdRecords               Record[]
   listStageChanges             ListStageHistory[]
@@ -430,20 +431,20 @@ model User {
   confirmedIdentityLinks       IdentityLink[]
   decidedMergeSuggestions      MergeSuggestion[]
   neverMergeDecisions          NeverMerge[]
-  mergesPerformed              RecordMerge[]             @relation("RecordMergeMergedBy")
-  unmergesPerformed            RecordMerge[]             @relation("RecordMergeUnmergedBy")
+  mergesPerformed              RecordMerge[]                 @relation("RecordMergeMergedBy")
+  unmergesPerformed            RecordMerge[]                 @relation("RecordMergeUnmergedBy")
   assignedConversations        Conversation[]
   authoredMessages             Message[]
   timelineEventsActed          TimelineEvent[]
   ownedConnections             Connection[]
-  requestedOutboundActions     OutboundAction[]          @relation("OutboundActionRequestedBy")
-  approvedOutboundActions      OutboundAction[]          @relation("OutboundActionApprovedBy")
+  requestedOutboundActions     OutboundAction[]              @relation("OutboundActionRequestedBy")
+  approvedOutboundActions      OutboundAction[]              @relation("OutboundActionApprovedBy")
   resolvedIntegrationErrors    IntegrationError[]
   createdWorkflows             Workflow[]
   acceptedAiInsights           AiInsight[]
   auditLogs                    AuditLog[]
-  assignedTasks                Task[]                    @relation("TaskAssignee")
-  createdTasks                 Task[]                    @relation("TaskCreatedBy")
+  assignedTasks                Task[]                        @relation("TaskAssignee")
+  createdTasks                 Task[]                        @relation("TaskCreatedBy")
   notes                        Note[]
   apiKeys                      ApiKey[]
   outboundWebhookSubscriptions OutboundWebhookSubscription[]
@@ -567,30 +568,30 @@ model ObjectType {
 /// depends on them (ADR-001). `isIndexed` drives the generated-column job; the
 /// resulting columns live outside this schema (see drift-allowlist.json).
 model Attribute {
-  id           String        @id @default(uuid())
-  workspaceId  String
-  objectTypeId String
-  apiSlug      String
-  title        String
-  description  String?
-  type         AttributeType
+  id            String        @id @default(uuid())
+  workspaceId   String
+  objectTypeId  String
+  apiSlug       String
+  title         String
+  description   String?
+  type          AttributeType
   /// options, currency code, target objectTypeId, formula AST, AI prompt…
-  config       Json          @default("{}")
-  isUnique     Boolean       @default(false)
-  isRequired   Boolean       @default(false)
-  isSystem     Boolean       @default(false)
-  isIndexed    Boolean       @default(false)
-  indexState   IndexState    @default(NONE)
+  config        Json          @default("{}")
+  isUnique      Boolean       @default(false)
+  isRequired    Boolean       @default(false)
+  isSystem      Boolean       @default(false)
+  isIndexed     Boolean       @default(false)
+  indexState    IndexState    @default(NONE)
   /// 0..100 while BUILDING.
-  indexProgress Int          @default(0)
-  indexError   String?
+  indexProgress Int           @default(0)
+  indexError    String?
   /// When a soft-deleted attribute's column and index are dropped (24h after deletion).
-  purgeAfter   DateTime?
-  position     Int           @default(0)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  purgeAfter    DateTime?
+  position      Int           @default(0)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
   /// Soft-deleted attributes keep their generated column for 24h (§12.2.F).
-  deletedAt    DateTime?
+  deletedAt     DateTime?
 
   workspace         Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   objectType        ObjectType            @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
@@ -609,44 +610,45 @@ model Attribute {
 /// initial migration. Losers of a merge are never deleted: mergeState = MERGED
 /// and mergedIntoId points at the winner (ADR-002).
 model Record {
-  id           String                        @id @default(uuid())
+  id           String                       @id @default(uuid())
   workspaceId  String
   objectTypeId String
-  values       Json                          @default("{}")
+  values       Json                         @default("{}")
   searchVector Unsupported("tsvector")?
   embedding    Unsupported("vector(1536)")?
   createdById  String?
   importJobId  String?
   mergedIntoId String?
-  mergeState   MergeState                    @default(ACTIVE)
-  createdAt    DateTime                      @default(now())
-  updatedAt    DateTime                      @updatedAt
+  mergeState   MergeState                   @default(ACTIVE)
+  createdAt    DateTime                     @default(now())
+  updatedAt    DateTime                     @updatedAt
   deletedAt    DateTime?
 
-  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  objectType  ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
-  createdBy   User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
-  importJob   ImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
-  mergedInto  Record?    @relation("RecordMergedInto", fields: [mergedIntoId], references: [id], onDelete: SetNull)
-  mergedFrom  Record[]   @relation("RecordMergedInto")
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  objectType ObjectType @relation(fields: [objectTypeId], references: [id], onDelete: Cascade)
+  createdBy  User?      @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  importJob  ImportJob? @relation(fields: [importJobId], references: [id], onDelete: SetNull)
+  mergedInto Record?    @relation("RecordMergedInto", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom Record[]   @relation("RecordMergedInto")
 
-  relationsFrom        RecordRelation[]   @relation("RecordRelationFrom")
-  relationsTo          RecordRelation[]   @relation("RecordRelationTo")
-  listEntries          ListEntry[]
-  identities           Identity[]
-  identityLinks        IdentityLink[]
-  mergeSuggestionsLeft MergeSuggestion[]  @relation("MergeSuggestionLeft")
-  mergeSuggestionsRight MergeSuggestion[] @relation("MergeSuggestionRight")
-  neverMergeLeft       NeverMerge[]       @relation("NeverMergeLeft")
-  neverMergeRight      NeverMerge[]       @relation("NeverMergeRight")
-  mergesWon            RecordMerge[]      @relation("RecordMergeWinner")
-  mergesLost           RecordMerge[]      @relation("RecordMergeLoser")
-  conversations        Conversation[]
-  timelineEvents       TimelineEvent[]
-  aiInsights           AiInsight[]
-  tasks                Task[]
-  notes                Note[]
-  dataSubjectRequests  DataSubjectRequest[]
+  relationsFrom           RecordRelation[]         @relation("RecordRelationFrom")
+  relationsTo             RecordRelation[]         @relation("RecordRelationTo")
+  listEntries             ListEntry[]
+  identities              Identity[]
+  identityLinks           IdentityLink[]
+  mergeSuggestionsLeft    MergeSuggestion[]        @relation("MergeSuggestionLeft")
+  mergeSuggestionsRight   MergeSuggestion[]        @relation("MergeSuggestionRight")
+  neverMergeLeft          NeverMerge[]             @relation("NeverMergeLeft")
+  neverMergeRight         NeverMerge[]             @relation("NeverMergeRight")
+  mergesWon               RecordMerge[]            @relation("RecordMergeWinner")
+  mergesLost              RecordMerge[]            @relation("RecordMergeLoser")
+  conversations           Conversation[]
+  timelineEvents          TimelineEvent[]
+  aiInsights              AiInsight[]
+  tasks                   Task[]
+  notes                   Note[]
+  dataSubjectRequests     DataSubjectRequest[]
+  keitaroConversionStates KeitaroConversionState[]
 
   @@index([workspaceId, objectTypeId, updatedAt(sort: Desc)])
   @@index([workspaceId, objectTypeId, mergeState])
@@ -865,37 +867,37 @@ model AttributePermission {
 /// One handle/address on one platform. `personRecordId` is null until identity
 /// resolution (§10) attaches it to a Person record.
 model Identity {
-  id             String    @id @default(uuid())
-  workspaceId    String
-  platform       Platform
+  id                    String    @id @default(uuid())
+  workspaceId           String
+  platform              Platform
   /// Platform-stable id — NOT the handle.
-  externalId     String
-  handle         String?
-  displayName    String?
-  avatarUrl      String?
-  profileUrl     String?
-  email          String?   @db.Citext
-  phone          String?
-  raw            Json      @default("{}")
-  firstSeenAt    DateTime  @default(now())
-  lastSeenAt     DateTime  @default(now())
-  personRecordId String?
+  externalId            String
+  handle                String?
+  displayName           String?
+  avatarUrl             String?
+  profileUrl            String?
+  email                 String?   @db.Citext
+  phone                 String?
+  raw                   Json      @default("{}")
+  firstSeenAt           DateTime  @default(now())
+  lastSeenAt            DateTime  @default(now())
+  personRecordId        String?
   /// When the resolver last scored this identity (null = never); the nightly job re-scores
   /// unresolved identities older than a day.
   resolutionAttemptedAt DateTime?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  deletedAt      DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  deletedAt             DateTime?
 
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   personRecord Record?   @relation(fields: [personRecordId], references: [id], onDelete: SetNull)
 
-  links                IdentityLink[]
-  mergeSuggestions     MergeSuggestion[]
-  conversations        Conversation[]
-  authoredMessages     Message[]
-  timelineEvents       TimelineEvent[] @relation("TimelineEventIdentity")
-  timelineEventsActed  TimelineEvent[] @relation("TimelineEventActorIdentity")
+  links               IdentityLink[]
+  mergeSuggestions    MergeSuggestion[]
+  conversations       Conversation[]
+  authoredMessages    Message[]
+  timelineEvents      TimelineEvent[]   @relation("TimelineEventIdentity")
+  timelineEventsActed TimelineEvent[]   @relation("TimelineEventActorIdentity")
 
   @@unique([workspaceId, platform, externalId])
   @@index([workspaceId, email])
@@ -1216,18 +1218,19 @@ model Connection {
   fieldMapping FieldMapping? @relation(fields: [fieldMappingId], references: [id], onDelete: SetNull)
   owner        User?         @relation(fields: [ownerUserId], references: [id], onDelete: SetNull)
 
-  grants            ConnectionGrant[]
-  driftSamples      ConnectionDriftSample[]
-  syncCursors       SyncCursor[]
-  syncRuns          SyncRun[]
-  externalObjects   ExternalObject[]
-  webhookEvents     WebhookEvent[]
-  rateBudgets       RateBudget[]
-  outboundActions   OutboundAction[]
-  integrationErrors IntegrationError[]
-  conversations     Conversation[]
-  timelineEvents    TimelineEvent[]
-  deadLetters       DeadLetter[]
+  grants                  ConnectionGrant[]
+  driftSamples            ConnectionDriftSample[]
+  syncCursors             SyncCursor[]
+  syncRuns                SyncRun[]
+  externalObjects         ExternalObject[]
+  webhookEvents           WebhookEvent[]
+  rateBudgets             RateBudget[]
+  outboundActions         OutboundAction[]
+  integrationErrors       IntegrationError[]
+  conversations           Conversation[]
+  timelineEvents          TimelineEvent[]
+  deadLetters             DeadLetter[]
+  keitaroConversionStates KeitaroConversionState[]
 
   @@unique([workspaceId, platform, accountExternalId])
   @@index([workspaceId, status])
@@ -1299,8 +1302,8 @@ model SyncRun {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
-  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  workspace  Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection Connection         @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   errors     IntegrationError[]
 
   @@index([workspaceId, connectionId, startedAt(sort: Desc)])
@@ -1638,6 +1641,38 @@ model DeadLetter {
   @@index([connectionId])
 }
 
+/// Keitaro attribution ledger (§8.6, ADR-019): one row per `(connectionId, subid, tid)`, the
+/// upsert key a Keitaro conversion arrives on repeatedly as `lead → sale → rejected`. Tracks
+/// exactly what was applied to `dealRecordId` so a later status flip reverses precisely the
+/// amount this row added, never a recomputation from the platform's current payload.
+model KeitaroConversionState {
+  id                       String    @id @default(uuid())
+  workspaceId              String
+  connectionId             String
+  subid                    String
+  tid                      String
+  /// The Deal `Record` this conversion's revenue is stamped on; null until resolved.
+  dealRecordId             String?
+  lastConversionExternalId String
+  lastStatus               String
+  /// Amount currently reflected on `dealRecordId.values[amount]`, in `appliedCurrency` minor
+  /// units (cents) — zero once a rejection has reversed it. Integer, never a float, so repeated
+  /// apply/reverse cycles cannot drift.
+  appliedPayoutCents       Int       @default(0)
+  appliedCurrency          String?
+  updatedAt                DateTime  @updatedAt
+  createdAt                DateTime  @default(now())
+  deletedAt                DateTime?
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connection Connection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  dealRecord Record?    @relation(fields: [dealRecordId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, connectionId, subid, tid])
+  @@index([workspaceId, dealRecordId])
+  @@index([connectionId])
+}
+
 // =============================================================================
 // §6.5 Automation, AI, audit
 // =============================================================================
@@ -1691,17 +1726,17 @@ model Workflow {
 
 /// One workflow execution. Log table: no deletedAt.
 model WorkflowRun {
-  id         String    @id @default(uuid())
+  id          String    @id @default(uuid())
   workspaceId String
-  workflowId String
-  status     RunStatus @default(QUEUED)
-  startedAt  DateTime  @default(now())
-  finishedAt DateTime?
-  context    Json      @default("{}")
-  steps      Json      @default("[]")
-  error      String?
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  workflowId  String
+  status      RunStatus @default(QUEUED)
+  startedAt   DateTime  @default(now())
+  finishedAt  DateTime?
+  context     Json      @default("{}")
+  steps       Json      @default("[]")
+  error       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
@@ -1748,17 +1783,17 @@ model AiInsight {
 /// pgvector chunk. The HNSW (vector_cosine_ops) index is hand-written in the
 /// initial migration. Deleted with its source, so no deletedAt.
 model Embedding {
-  id          String                       @id @default(uuid())
+  id          String                      @id @default(uuid())
   workspaceId String
   /// "record" | "message" | "note" | "external_object"…
   sourceType  String
   sourceId    String
   vector      Unsupported("vector(1536)")
   model       String
-  chunkIndex  Int                          @default(0)
+  chunkIndex  Int                         @default(0)
   text        String
-  createdAt   DateTime                     @default(now())
-  updatedAt   DateTime                     @updatedAt
+  createdAt   DateTime                    @default(now())
+  updatedAt   DateTime                    @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -1769,20 +1804,20 @@ model Embedding {
 /// lifecycle, record CRUD with a JSON diff, exports, erasure requests and every
 /// outbound platform write. Append-only: no updatedAt/deletedAt.
 model AuditLog {
-  id           String    @id @default(uuid())
-  workspaceId  String
-  actorUserId  String?
-  actorType    ActorType @default(USER)
+  id          String    @id @default(uuid())
+  workspaceId String
+  actorUserId String?
+  actorType   ActorType @default(USER)
   /// ApiKey id / workflow id / connection id when actorType is not USER.
-  actorRef     String?
-  action       String
-  targetType   String
-  targetId     String
-  diff         Json      @default("{}")
-  ip           String?
-  userAgent    String?
-  at           DateTime  @default(now())
-  createdAt    DateTime  @default(now())
+  actorRef    String?
+  action      String
+  targetType  String
+  targetId    String
+  diff        Json      @default("{}")
+  ip          String?
+  userAgent   String?
+  at          DateTime  @default(now())
+  createdAt   DateTime  @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   actorUser User?     @relation(fields: [actorUserId], references: [id], onDelete: SetNull)

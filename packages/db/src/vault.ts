@@ -50,11 +50,16 @@ export type Vault = {
     expiresAt?: Date | null,
   ): Promise<{ version: number }>;
   revoke(db: VaultDb, ref: string): Promise<void>;
-  /** Typed helpers for OAuth credentials. */
+  /**
+   * Typed helpers for OAuth credentials. `kind` defaults to `OAUTH_TOKEN`; `api_key`
+   * connectors (Keitaro) pass `API_KEY` so the vault row's kind reflects what it actually
+   * holds even though the wire shape is still a `TokenSet` (`accessToken` IS the key).
+   */
   putTokenSet(
     db: VaultDb,
     workspaceId: string,
     token: TokenSet,
+    kind?: VaultKind,
   ): Promise<{ ref: string; version: number }>;
   getTokenSet(
     db: VaultDb,
@@ -217,10 +222,10 @@ export function createVault(opts: { keyProvider: KeyProvider }): Vault {
       });
     },
 
-    async putTokenSet(db, workspaceId, token) {
+    async putTokenSet(db, workspaceId, token, kind) {
       return vault.put(db, {
         workspaceId,
-        kind: 'OAUTH_TOKEN',
+        kind: kind ?? 'OAUTH_TOKEN',
         secret: JSON.stringify(tokenSetSchema.parse(token)),
         expiresAt: token.expiresAt ?? null,
       });

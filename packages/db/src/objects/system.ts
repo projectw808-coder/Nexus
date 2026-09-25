@@ -119,19 +119,38 @@ export const SYSTEM_OBJECTS: SeedObject[] = [
         config: { targetObjectTypeId: '$person', multiple: true },
       },
       { apiSlug: 'owner', title: 'Owner', type: 'USER' },
+      // Attribution (Phase 8, ADR-019, spec §8.6): stamped once from the originating Keitaro
+      // click and immutable thereafter — the sink only ever sets these on a newly created
+      // Deal, never on update. Free-form names, since Keitaro campaigns/offers/etc. are
+      // per-tracker configuration with no shared vocabulary across customers.
+      { apiSlug: 'attribution_campaign', title: 'Campaign', type: 'TEXT', isIndexed: true },
+      { apiSlug: 'attribution_source', title: 'Traffic source', type: 'TEXT', isIndexed: true },
+      { apiSlug: 'attribution_offer', title: 'Offer', type: 'TEXT' },
+      { apiSlug: 'attribution_affiliate_network', title: 'Affiliate network', type: 'TEXT' },
+      { apiSlug: 'attribution_creative', title: 'Creative', type: 'TEXT' },
+      { apiSlug: 'attribution_landing', title: 'Landing page', type: 'TEXT' },
+      { apiSlug: 'attribution_geo', title: 'Geo', type: 'TEXT' },
     ],
   },
 ];
 
-/** Creates the system object types, their attributes and the default deals pipeline. */
+/**
+ * Creates the system object types, their attributes and the default deals pipeline. Idempotent
+ * at every level (upsert by the natural unique key): safe to call again on a workspace that was
+ * seeded by an earlier version of `SYSTEM_OBJECTS` so a later phase's new system attributes
+ * (e.g. Phase 8's Deal attribution fields) reach workspaces seeded before they existed.
+ * Pre-existing rows are left untouched — only missing ones are added.
+ */
 export async function seedSystemObjects(
   db: SystemDb,
   workspaceId: string,
 ): Promise<Record<string, string>> {
   const ids: Record<string, string> = {};
   for (const obj of SYSTEM_OBJECTS) {
-    const row = await db.objectType.create({
-      data: {
+    const row = await db.objectType.upsert({
+      where: { workspaceId_apiSlug: { workspaceId, apiSlug: obj.apiSlug } },
+      update: {},
+      create: {
         workspaceId,
         apiSlug: obj.apiSlug,
         singular: obj.singular,
@@ -143,7 +162,10 @@ export async function seedSystemObjects(
     ids[obj.apiSlug] = row.id;
   }
   for (const obj of SYSTEM_OBJECTS) {
-    let position = 0;
+    const existingCount = await db.attribute.count({
+      where: { workspaceId, objectTypeId: ids[obj.apiSlug]! },
+    });
+    let position = existingCount;
     for (const a of obj.attributes) {
       const config = { ...(a.config ?? {}) };
       if (
@@ -152,8 +174,16 @@ export async function seedSystemObjects(
       ) {
         config['targetObjectTypeId'] = ids[config['targetObjectTypeId'].slice(1)];
       }
-      await db.attribute.create({
-        data: {
+      await db.attribute.upsert({
+        where: {
+          workspaceId_objectTypeId_apiSlug: {
+            workspaceId,
+            objectTypeId: ids[obj.apiSlug]!,
+            apiSlug: a.apiSlug,
+          },
+        },
+        update: {},
+        create: {
           workspaceId,
           objectTypeId: ids[obj.apiSlug]!,
           apiSlug: a.apiSlug,
@@ -171,36 +201,50 @@ export async function seedSystemObjects(
       });
     }
   }
-  const pipeline = await db.list.create({
-    data: {
-      workspaceId,
-      objectTypeId: ids['deal']!,
-      name: 'Sales pipeline',
-      kind: 'PIPELINE',
-      settings: { stages: DEAL_STAGES.map((s) => s.id) },
-    },
+  const existingPipeline = await db.list.findFirst({
+    where: { workspaceId, objectTypeId: ids['deal']!, kind: 'PIPELINE', deletedAt: null },
+    select: { id: true },
   });
-  await db.listAttribute.create({
-    data: {
-      workspaceId,
-      listId: pipeline.id,
+  const pipeline =
+    existingPipeline ??
+    (await db.list.create({
+      data: {
+        workspaceId,
+        objectTypeId: ids['deal']!,
+        name: 'Sales pipeline',
+        kind: 'PIPELINE',
+        settings: { stages: DEAL_STAGES.map((s) => s.id) },
+      },
+    }));
+  for (const [i, la] of [
+    {
       apiSlug: 'stage',
       title: 'Stage',
-      type: 'STATUS',
+      type: 'STATUS' as const,
       config: { options: DEAL_STAGES.map((s) => ({ ...s })) },
-      position: 0,
     },
-  });
-  await db.listAttribute.create({
-    data: {
-      workspaceId,
-      listId: pipeline.id,
+    {
       apiSlug: 'probability',
       title: 'Probability %',
-      type: 'NUMBER',
+      type: 'NUMBER' as const,
       config: { min: 0, max: 100 },
-      position: 1,
     },
-  });
+  ].entries()) {
+    await db.listAttribute.upsert({
+      where: {
+        workspaceId_listId_apiSlug: { workspaceId, listId: pipeline.id, apiSlug: la.apiSlug },
+      },
+      update: {},
+      create: {
+        workspaceId,
+        listId: pipeline.id,
+        apiSlug: la.apiSlug,
+        title: la.title,
+        type: la.type,
+        config: la.config,
+        position: i,
+      },
+    });
+  }
   return ids;
 }

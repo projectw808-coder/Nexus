@@ -88,17 +88,22 @@ export function createTenancy(runtime: TenantRuntime) {
     },
 
     /**
-     * Workspaces created before Phase 2 have no Person/Company/Deal object types. Seed them
-     * once, idempotently; called when a workspace is opened. Returns true when it seeded.
+     * Workspaces created before Phase 2 have no Person/Company/Deal object types, and a
+     * workspace seeded by an earlier phase is missing system attributes a later phase added
+     * (e.g. Phase 8's Deal attribution fields). `seedSystemObjects` upserts by natural key, so
+     * calling it again only ever adds what's missing. Called when a workspace is opened.
+     * Returns true when it added anything.
      */
     async ensureSystemObjects(workspaceId: string): Promise<boolean> {
       return runtime.withSystem(async (db) => {
-        const existing = await db.objectType.count({
+        const before = await db.attribute.count({
           where: { workspaceId, isSystem: true, deletedAt: null },
         });
-        if (existing > 0) return false;
         await seedSystemObjects(db, workspaceId);
-        return true;
+        const after = await db.attribute.count({
+          where: { workspaceId, isSystem: true, deletedAt: null },
+        });
+        return after > before;
       });
     },
 

@@ -3,7 +3,11 @@
  * transitions driven by the failure taxonomy, and the cross-tenant lookups the webhook
  * receiver and the scheduler need (system client, this package only — ADR-006).
  */
-import { connectionSettingsSchema, type ConnectionSettings } from '@nexus/connector-sdk';
+import {
+  connectionSettingsSchema,
+  type ConnectionSettings,
+  type ConnectionSettingsInput,
+} from '@nexus/connector-sdk';
 import type { ConnStatus, Platform } from '../generated/prisma/enums.ts';
 import type { Prisma } from '../generated/prisma/client.ts';
 import type { Actor, SystemDb, TenantDb, TenantRuntime } from '../scoped.ts';
@@ -36,7 +40,7 @@ export type CreateConnectionInput = {
   refreshableUntil?: Date | null;
   webhookSecretRef?: string | null;
   ownerUserId: string | null;
-  settings?: Partial<ConnectionSettings>;
+  settings?: ConnectionSettingsInput;
 };
 
 /** Create or re-attach (same workspace + platform + account) a connection. Re-attaching refreshes the token handle and scopes. */
