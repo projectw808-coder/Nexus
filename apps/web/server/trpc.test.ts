@@ -63,6 +63,7 @@ describe('tenant procedure guarantees', () => {
       mail: seed.mail,
       appUrl: 'http://localhost:3000',
       jobs: seed.jobs,
+      sync: seed.sync,
     };
     const caller = createCallerFactory(leaky)(ctx);
     await expect(caller.renameNoAudit()).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });

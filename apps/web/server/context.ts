@@ -8,6 +8,7 @@ import { runtime, tenancy } from '@nexus/db';
 import { auth } from '@/auth';
 import { getMailProvider } from '@/lib/mail/provider';
 import { createDispatcher } from './jobs';
+import { getSyncDeps } from './sync';
 import { appRouter } from './routers';
 import { createCallerFactory, type Context, type SessionUser } from './trpc';
 
@@ -43,6 +44,7 @@ export async function createContext(opts: {
     mail: getMailProvider(),
     appUrl: env.APP_URL,
     jobs: createDispatcher(),
+    sync: await getSyncDeps(),
   };
 }
 

@@ -25,6 +25,7 @@ import {
 import { initTRPC, TRPCError, type TRPC_ERROR_CODE_KEY } from '@trpc/server';
 import superjson from 'superjson';
 import type { MailProvider } from '@/lib/mail/provider';
+import type { SyncDeps } from '@nexus/sync';
 import type { JobDispatcher } from './jobs';
 import { defineAbilityFor, type Action, type AppAbility, type Subject } from './abilities';
 
@@ -41,6 +42,8 @@ export type Context = {
   mail: MailProvider;
   appUrl: string;
   jobs: JobDispatcher;
+  /** The sync engine handle (Phase 4): registry, vault, limiter and bus. */
+  sync: SyncDeps;
 };
 
 export type AuditRecorder = {

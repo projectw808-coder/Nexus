@@ -2,8 +2,22 @@
  * Test harness for the tRPC layer: an in-process caller wired to a PGlite database, a memory
  * mail provider and a fake session. No HTTP, no Auth.js.
  */
-import type { Actor } from '@nexus/db';
+import { createMockPlatform } from '@nexus/connector-mock';
+import {
+  MemoryBudgetStore,
+  RateLimiter,
+  generateMasterKeyBase64,
+  localKeyProvider,
+} from '@nexus/connector-sdk';
+import { createVault, type Actor } from '@nexus/db';
 import { createTestDatabase, type TestDatabase } from '@nexus/db/testing';
+import {
+  countingSink,
+  createConnectorRegistry,
+  type JobBus,
+  type JobEnvelope,
+  type SyncDeps,
+} from '@nexus/sync';
 import { MemoryMailProvider } from '@/lib/mail/provider';
 import { recordingDispatcher } from './jobs';
 import { appRouter } from './routers';
@@ -13,6 +27,9 @@ export type Seed = {
   db: TestDatabase;
   mail: MemoryMailProvider;
   jobs: ReturnType<typeof recordingDispatcher>;
+  /** Engine handle whose bus only records; the mock platform runs in-process. */
+  sync: SyncDeps & { bus: RecordingBus };
+  mockPlatform: ReturnType<typeof createMockPlatform>;
   users: { alice: SessionUser; bob: SessionUser; carol: SessionUser };
   /** Alice owns Acme; Bob owns Globex; Carol is a VIEWER in Acme. */
   acme: { id: string; slug: string };
@@ -24,10 +41,49 @@ export type Seed = {
 const callerFactory = createCallerFactory(appRouter);
 export type Caller = ReturnType<typeof callerFactory>;
 
+export type RecordingBus = JobBus & { calls: JobEnvelope[] };
+export function recordingBus(): RecordingBus {
+  const calls: JobEnvelope[] = [];
+  return {
+    calls,
+    async enqueue(job) {
+      calls.push(job);
+      return { jobId: `rec-${calls.length}`, mode: 'inline' as const };
+    },
+  };
+}
+
 export async function seedWorkspaces(): Promise<Seed> {
   const db = await createTestDatabase();
   const mail = new MemoryMailProvider();
   const jobs = recordingDispatcher();
+  const mockPlatform = createMockPlatform({ totalObjects: 30, accounts: 1 });
+  const quiet = { debug() {}, info() {}, warn() {}, error() {} };
+  const sync: Seed['sync'] = {
+    runtime: db.runtime,
+    vault: createVault({
+      keyProvider: localKeyProvider({
+        masterKeyId: 'local:test',
+        masterKeyBase64: generateMasterKeyBase64(),
+      }),
+    }),
+    limiter: new RateLimiter({ store: new MemoryBudgetStore() }),
+    registry: createConnectorRegistry({ mockBaseUrl: mockPlatform.baseUrl }),
+    bus: recordingBus(),
+    logger: quiet,
+    sink: countingSink(),
+    appSecrets: {
+      webhookSecret: () => mockPlatform.webhookSecret,
+      oauthCredentials: async () => ({
+        clientId: mockPlatform.clientId,
+        clientSecret: mockPlatform.clientSecret,
+      }),
+      stateSecret: () => 'test-state-secret',
+    },
+    fetchFor: () => mockPlatform.fetch,
+    appUrl: 'http://localhost:3000',
+    httpRetry: { baseMs: 1, capMs: 2, maxAttempts: 1 },
+  };
   const mk = async (email: string, name: string): Promise<SessionUser> => {
     const u = await db.prisma.user.create({ data: { email, name } });
     return { id: u.id, email: u.email, name: u.name };
@@ -62,6 +118,7 @@ export async function seedWorkspaces(): Promise<Seed> {
       mail,
       appUrl: 'http://localhost:3000',
       jobs,
+      sync,
     };
     return callerFactory(ctx);
   };
@@ -70,6 +127,8 @@ export async function seedWorkspaces(): Promise<Seed> {
     db,
     mail,
     jobs,
+    sync,
+    mockPlatform,
     users: { alice, bob, carol },
     acme,
     globex,

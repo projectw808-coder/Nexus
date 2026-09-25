@@ -12,6 +12,8 @@
 import { toCsv } from '@nexus/core';
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { recordDeadLetter, recordIntegrationError, upsertConnection } from '@nexus/db';
+import { NexusError } from '@nexus/core';
 import { callPath, procedureManifest, seedWorkspaces, type Seed } from './testing';
 
 type Tier = 'public' | 'user' | 'tenant';
@@ -44,6 +46,10 @@ type Ids = {
   personId: string;
   companyId: string;
   dealId: string;
+  connectionId: string;
+  connectionLabel: string;
+  integrationErrorId: string;
+  deadLetterId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -385,6 +391,60 @@ const FIXTURES: Record<string, Fixture> = {
     input: () => ({ objectType: 'widget', format: 'csv' }),
     crossInput: (ids) => ({ objectType: ids.objectTypeId, format: 'csv' }),
   },
+  // Phase 4 — connections
+  'connection.list': { tier: 'tenant', input: () => undefined },
+  'connection.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.connectUrl': { tier: 'tenant', input: () => ({ platform: 'MOCK' }) },
+  'connection.updateSettings': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId, settings: { backfillDays: 30 } }),
+    crossInput: (ids) => ({ id: ids.connectionId, settings: { paused: true } }),
+  },
+  'connection.pause': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.resume': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.syncNow': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.runs': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.errors': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.resolveError': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.integrationErrorId }),
+    crossInput: (ids) => ({ id: ids.integrationErrorId }),
+  },
+  'connection.deadLetters': { tier: 'tenant', input: () => undefined },
+  'connection.replayDeadLetter': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.deadLetterId }),
+    crossInput: (ids) => ({ id: ids.deadLetterId }),
+  },
+  'connection.disconnect': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
+    crossInput: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
+  },
 };
 
 let seed: Seed;
@@ -449,7 +509,62 @@ async function freshIds(): Promise<Ids> {
   const person = await owner.person.create({ values: { name: 'Pat' } });
   const company = await owner.company.create({ values: { name: 'Acme Co' } });
   const deal = await owner.deal.create({ values: { name: 'Deal' } });
+  const connectionLabel = 'Mock Platform — Mock Account 1 (@mock1)';
+  const conn = await seed.db.runtime.withTenant(
+    seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+    async (db) => {
+      const issued = seed.mockPlatform.issueToken();
+      const tokenRef = (
+        await seed.sync.vault.putTokenSet(db, seed.acme.id, {
+          accessToken: issued.accessToken,
+          refreshToken: issued.refreshToken,
+          scopes: ['read:posts', 'read:comments', 'write:reply_comment'],
+          tokenType: 'Bearer',
+          raw: {},
+        })
+      ).ref;
+      const c = await upsertConnection(db, {
+        workspaceId: seed.acme.id,
+        platform: 'MOCK',
+        label: connectionLabel,
+        accountExternalId: 'acct_1',
+        accountName: 'Mock Account 1',
+        scopesGranted: ['read:posts', 'read:comments', 'write:reply_comment'],
+        scopesRequired: ['read:posts', 'read:comments', 'write:reply_comment'],
+        capabilities: ['read:posts', 'read:comments', 'write:reply_comment'],
+        apiVersion: '2026-09',
+        tokenRef,
+        ownerUserId: seed.users.alice.id,
+      });
+      const err = await recordIntegrationError(db, {
+        workspaceId: seed.acme.id,
+        connectionId: c.id,
+        platform: 'MOCK',
+        error: new NexusError('RATE_LIMITED'),
+      });
+      const dl = await recordDeadLetter(db, {
+        workspaceId: seed.acme.id,
+        connectionId: c.id,
+        queue: 'sync.delta',
+        jobName: 'sync',
+        payload: {
+          workspaceId: seed.acme.id,
+          connectionId: c.id,
+          resource: 'mock.posts',
+          trigger: 'MANUAL',
+          lane: 'interactive',
+        },
+        error: new NexusError('PLATFORM_DOWN'),
+        attempts: 6,
+      });
+      return { id: c.id, errorId: err.id, deadLetterId: dl.id };
+    },
+  );
   return {
+    connectionId: conn.id,
+    connectionLabel,
+    integrationErrorId: conn.errorId,
+    deadLetterId: conn.deadLetterId,
     spareRecordId: spare.id,
     noteId: note.id,
     taskId: task.id,

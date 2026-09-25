@@ -13,8 +13,10 @@
   },
   "dependencies": {
     "@nexus/config": "workspace:*",
+    "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/db": "workspace:*",
+    "@nexus/sync": "workspace:*",
     "@nexus/telemetry": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
     "bullmq": "^6.3.8",

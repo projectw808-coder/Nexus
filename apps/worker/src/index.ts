@@ -14,6 +14,7 @@ import { Queue, Worker, type Job } from 'bullmq';
 import { startHealthServer } from './health.ts';
 import { handleSystemJob, type SystemJobData } from './processors/system.ts';
 import { createRedis } from './redis.ts';
+import { handleSyncSystemJob, startSyncHost, SYNC_SYSTEM_JOBS } from './sync.ts';
 
 const env = loadEnv();
 const log = createLogger({
@@ -23,6 +24,8 @@ const log = createLogger({
 });
 
 const connection = createRedis(env.REDIS_URL);
+const syncHost = startSyncHost({ redis: connection, log });
+const SYNC_JOB_NAMES = new Set<string>(Object.values(SYNC_SYSTEM_JOBS));
 
 /** Wrap a processor so every job runs inside a consumer span joined to the producer's trace. */
 function traced<T extends { [TRACE_CARRIER_KEY]?: TraceCarrier }, R>(
@@ -40,7 +43,11 @@ function traced<T extends { [TRACE_CARRIER_KEY]?: TraceCarrier }, R>(
 
 const systemWorker = new Worker<SystemJobData>(
   QUEUES.system,
-  traced(QUEUES.system, (job) => handleSystemJob(job, withLogContext(log, { jobId: job.id }))),
+  traced(QUEUES.system, (job) =>
+    SYNC_JOB_NAMES.has(job.name)
+      ? handleSyncSystemJob(syncHost, job.name, withLogContext(log, { jobId: job.id }))
+      : handleSystemJob(job, withLogContext(log, { jobId: job.id })),
+  ),
   { connection, prefix: QUEUE_PREFIX, concurrency: 5 },
 );
 
@@ -79,7 +86,7 @@ void (async () => {
 const health = startHealthServer({
   port: env.WORKER_HEALTH_PORT,
   redis: connection,
-  workers: { [QUEUES.system]: systemWorker },
+  workers: { [QUEUES.system]: systemWorker, ...syncHost.workers },
   log,
 });
 
@@ -93,7 +100,12 @@ async function shutdown(signal: string): Promise<void> {
     process.exit(1);
   }, 15_000);
   deadline.unref();
-  await Promise.allSettled([systemWorker.close(), systemQueue.close(), health.close()]);
+  await Promise.allSettled([
+    systemWorker.close(),
+    systemQueue.close(),
+    syncHost.close(),
+    health.close(),
+  ]);
   await connection.quit().catch(() => undefined);
   process.exit(0);
 }
@@ -102,7 +114,13 @@ process.on('SIGINT', () => void shutdown('SIGINT'));
 
 log.info(
   {
-    queues: [QUEUES.system],
+    queues: [
+      QUEUES.system,
+      QUEUES.syncBackfill,
+      QUEUES.syncDelta,
+      QUEUES.ingestRaw,
+      QUEUES.normalize,
+    ],
     healthPort: env.WORKER_HEALTH_PORT,
     otlp: env.OTEL_EXPORTER_OTLP_ENDPOINT ?? null,
   },

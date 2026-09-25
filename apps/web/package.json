@@ -20,8 +20,10 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@nexus/config": "workspace:*",
+    "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/db": "workspace:*",
+    "@nexus/sync": "workspace:*",
     "@nexus/telemetry": "workspace:*",
     "@nexus/ui": "workspace:*",
     "@opentelemetry/api": "^1.9.1",
@@ -53,6 +55,7 @@
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "5.9.3",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.1",
+    "@nexus/connector-mock": "workspace:*"
   }
 }
