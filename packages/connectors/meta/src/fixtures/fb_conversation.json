@@ -1,0 +1,14 @@
+{
+  "id": "t_1",
+  "updated_time": "2026-09-20T14:03:11+0000",
+  "snippet": "Hi, is the espresso machine still in stock?",
+  "message_count": 4,
+  "unread_count": 1,
+  "link": "/101010101010101/inbox/t_1",
+  "participants": {
+    "data": [
+      { "id": "24100000001", "name": "Jordan Customer" },
+      { "id": "101010101010101", "name": "Acme Coffee" }
+    ]
+  }
+}

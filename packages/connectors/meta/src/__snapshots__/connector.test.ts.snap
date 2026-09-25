@@ -1,0 +1,642 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`normalize > matches golden snapshots for every kind 1`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "Jordan Customer",
+    "externalId": "24100000001",
+    "handle": null,
+    "kind": "person",
+    "occurredAt": 2026-09-20T14:03:11.000Z,
+    "platform": "FACEBOOK",
+    "profileUrl": null,
+    "raw": {
+      "id": "24100000001",
+      "name": "Jordan Customer",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "conversationType": "dm",
+    "externalId": "dm:24100000001",
+    "kind": "conversation",
+    "lastMessageAt": 2026-09-20T14:03:11.000Z,
+    "messageCount": 4,
+    "occurredAt": 2026-09-20T14:03:11.000Z,
+    "participants": [
+      {
+        "displayName": "Jordan Customer",
+        "externalId": "24100000001",
+        "handle": null,
+        "role": "customer",
+      },
+      {
+        "displayName": "Acme Coffee",
+        "externalId": "101010101010101",
+        "handle": null,
+        "role": "owner",
+      },
+    ],
+    "platform": "FACEBOOK",
+    "raw": {
+      "id": "t_1",
+      "link": "/101010101010101/inbox/t_1",
+      "message_count": 4,
+      "participants": {
+        "data": [
+          {
+            "id": "24100000001",
+            "name": "Jordan Customer",
+          },
+          {
+            "id": "101010101010101",
+            "name": "Acme Coffee",
+          },
+        ],
+      },
+      "snippet": "Hi, is the espresso machine still in stock?",
+      "unread_count": 1,
+      "updated_time": "2026-09-20T14:03:11+0000",
+    },
+    "replyWindowExpiresAt": null,
+    "rootExternalId": null,
+    "sourceUrl": "https://www.facebook.com/101010101010101/inbox/t_1",
+    "status": "open",
+    "subject": "Hi, is the espresso machine still in stock?",
+    "unreadCount": 1,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 2`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "Jordan Customer",
+    "externalId": "24100000001",
+    "handle": null,
+    "kind": "person",
+    "occurredAt": 2026-09-20T14:03:11.000Z,
+    "platform": "FACEBOOK",
+    "profileUrl": null,
+    "raw": {
+      "id": "24100000001",
+      "name": "Jordan Customer",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "attachments": [
+      {
+        "externalId": "att_1",
+        "mimeType": "image/jpeg",
+        "name": "receipt.jpg",
+        "sizeBytes": 20480,
+        "type": "image",
+        "url": "https://scontent.test/att/receipt.jpg",
+      },
+    ],
+    "authorExternalId": "24100000001",
+    "body": "Hi, is the espresso machine still in stock?",
+    "conversationExternalId": "dm:24100000001",
+    "direction": "inbound",
+    "externalId": "m_AbCdEf123",
+    "kind": "message",
+    "messageType": "dm",
+    "occurredAt": 2026-09-20T14:03:11.000Z,
+    "parentExternalId": null,
+    "platform": "FACEBOOK",
+    "raw": {
+      "attachments": {
+        "data": [
+          {
+            "id": "att_1",
+            "image_data": {
+              "height": 600,
+              "url": "https://scontent.test/att/receipt.jpg",
+              "width": 800,
+            },
+            "mime_type": "image/jpeg",
+            "name": "receipt.jpg",
+            "size": 20480,
+          },
+        ],
+      },
+      "conversationId": "t_1",
+      "created_time": "2026-09-20T14:03:11+0000",
+      "from": {
+        "id": "24100000001",
+        "name": "Jordan Customer",
+      },
+      "id": "m_AbCdEf123",
+      "message": "Hi, is the espresso machine still in stock?",
+      "to": {
+        "data": [
+          {
+            "id": "101010101010101",
+            "name": "Acme Coffee",
+          },
+        ],
+      },
+    },
+    "recipientExternalIds": [
+      "101010101010101",
+    ],
+    "replyWindowExpiresAt": 2026-09-21T14:03:11.000Z,
+    "rootExternalId": null,
+    "sentAt": 2026-09-20T14:03:11.000Z,
+    "sourceUrl": null,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 3`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "Sam Fan",
+    "externalId": "24200000001",
+    "handle": null,
+    "kind": "person",
+    "occurredAt": 2026-09-19T09:15:00.000Z,
+    "platform": "FACEBOOK",
+    "profileUrl": null,
+    "raw": {
+      "id": "24200000001",
+      "name": "Sam Fan",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "attachments": [],
+    "authorExternalId": "24200000001",
+    "body": "How much is a bag of the Kenyan?",
+    "conversationExternalId": "post:101010101010101_5000",
+    "direction": "inbound",
+    "externalId": "5000_9000",
+    "kind": "message",
+    "messageType": "comment",
+    "occurredAt": 2026-09-19T09:15:00.000Z,
+    "parentExternalId": null,
+    "platform": "FACEBOOK",
+    "raw": {
+      "created_time": "2026-09-19T09:15:00+0000",
+      "from": {
+        "id": "24200000001",
+        "name": "Sam Fan",
+      },
+      "id": "5000_9000",
+      "is_hidden": false,
+      "message": "How much is a bag of the Kenyan?",
+      "permalink_url": "https://www.facebook.com/101010101010101/posts/5000?comment_id=9000",
+      "postId": "101010101010101_5000",
+    },
+    "rootExternalId": "101010101010101_5000",
+    "sentAt": 2026-09-19T09:15:00.000Z,
+    "sourceUrl": "https://www.facebook.com/101010101010101/posts/5000?comment_id=9000",
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 4`] = `
+[
+  {
+    "adExternalId": "ad_1",
+    "adSetExternalId": "adset_1",
+    "campaignExternalId": "camp_1",
+    "email": "dana@wholesale.test",
+    "externalId": "lead_1",
+    "fields": [
+      {
+        "name": "full_name",
+        "value": "Dana Wholesale",
+      },
+      {
+        "name": "email",
+        "value": "dana@wholesale.test",
+      },
+      {
+        "name": "phone_number",
+        "value": "+15555550123",
+      },
+      {
+        "name": "company",
+        "value": "Wholesale Co",
+      },
+    ],
+    "formExternalId": "form_1",
+    "formName": "Wholesale enquiry",
+    "fullName": "Dana Wholesale",
+    "kind": "lead",
+    "occurredAt": 2026-09-18T08:00:00.000Z,
+    "phone": "+15555550123",
+    "platform": "FACEBOOK",
+    "raw": {
+      "ad_id": "ad_1",
+      "adset_id": "adset_1",
+      "campaign_id": "camp_1",
+      "created_time": "2026-09-18T08:00:00+0000",
+      "field_data": [
+        {
+          "name": "full_name",
+          "values": [
+            "Dana Wholesale",
+          ],
+        },
+        {
+          "name": "email",
+          "values": [
+            "dana@wholesale.test",
+          ],
+        },
+        {
+          "name": "phone_number",
+          "values": [
+            "+15555550123",
+          ],
+        },
+        {
+          "name": "company",
+          "values": [
+            "Wholesale Co",
+          ],
+        },
+      ],
+      "formName": "Wholesale enquiry",
+      "form_id": "form_1",
+      "id": "lead_1",
+    },
+    "source": "lead_form",
+    "sourceUrl": null,
+    "submittedAt": 2026-09-18T08:00:00.000Z,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 5`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "Regular Reviewer",
+    "externalId": "24300000002",
+    "handle": null,
+    "kind": "person",
+    "occurredAt": 2026-09-17T18:30:00.000Z,
+    "platform": "FACEBOOK",
+    "profileUrl": null,
+    "raw": {
+      "id": "24300000002",
+      "name": "Regular Reviewer",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "authorDisplayName": "Regular Reviewer",
+    "authorExternalId": "24300000002",
+    "body": "Best flat white in town.",
+    "externalId": "og_1",
+    "kind": "review",
+    "locationExternalId": "101010101010101",
+    "maxRating": 5,
+    "occurredAt": 2026-09-17T18:30:00.000Z,
+    "platform": "FACEBOOK",
+    "rating": 5,
+    "raw": {
+      "created_time": "2026-09-17T18:30:00+0000",
+      "open_graph_story": {
+        "id": "og_1",
+      },
+      "rating": 5,
+      "recommendation_type": "positive",
+      "review_text": "Best flat white in town.",
+      "reviewer": {
+        "id": "24300000002",
+        "name": "Regular Reviewer",
+      },
+    },
+    "recommends": true,
+    "reply": null,
+    "reviewedAt": 2026-09-17T18:30:00.000Z,
+    "sourceUrl": null,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 6`] = `
+[
+  {
+    "externalId": "101010101010101:page_impressions:day:2026-09-19T07:00:00.000Z",
+    "kind": "metric",
+    "metric": "page_impressions",
+    "occurredAt": 2026-09-19T07:00:00.000Z,
+    "period": {
+      "end": 2026-09-19T07:00:00.000Z,
+      "granularity": "day",
+      "start": 2026-09-18T07:00:00.000Z,
+    },
+    "platform": "FACEBOOK",
+    "raw": {
+      "id": "101010101010101/insights/page_impressions/day",
+      "name": "page_impressions",
+      "period": "day",
+      "subjectId": "101010101010101",
+      "values": [
+        {
+          "end_time": "2026-09-19T07:00:00+0000",
+          "value": 1520,
+        },
+      ],
+    },
+    "sourceUrl": null,
+    "subjectExternalId": "101010101010101",
+    "subjectKind": "page",
+    "value": 1520,
+  },
+  {
+    "externalId": "101010101010101:page_impressions:day:2026-09-20T07:00:00.000Z",
+    "kind": "metric",
+    "metric": "page_impressions",
+    "occurredAt": 2026-09-20T07:00:00.000Z,
+    "period": {
+      "end": 2026-09-20T07:00:00.000Z,
+      "granularity": "day",
+      "start": 2026-09-19T07:00:00.000Z,
+    },
+    "platform": "FACEBOOK",
+    "raw": {
+      "id": "101010101010101/insights/page_impressions/day",
+      "name": "page_impressions",
+      "period": "day",
+      "subjectId": "101010101010101",
+      "values": [
+        {
+          "end_time": "2026-09-20T07:00:00+0000",
+          "value": 1611,
+        },
+      ],
+    },
+    "sourceUrl": null,
+    "subjectExternalId": "101010101010101",
+    "subjectKind": "page",
+    "value": 1611,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 7`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": null,
+    "externalId": "24100000001",
+    "handle": null,
+    "kind": "person",
+    "occurredAt": 2025-09-20T14:03:11.000Z,
+    "platform": "FACEBOOK",
+    "profileUrl": null,
+    "raw": {
+      "id": "24100000001",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "conversationType": "dm",
+    "externalId": "dm:24100000001",
+    "kind": "conversation",
+    "lastMessageAt": 2025-09-20T14:03:11.000Z,
+    "occurredAt": 2025-09-20T14:03:11.000Z,
+    "participants": [
+      {
+        "displayName": null,
+        "externalId": "101010101010101",
+        "handle": null,
+        "role": "owner",
+      },
+      {
+        "displayName": null,
+        "externalId": "24100000001",
+        "handle": null,
+        "role": "customer",
+      },
+    ],
+    "platform": "FACEBOOK",
+    "raw": {
+      "customer": "24100000001",
+      "derivedFrom": "messaging_event",
+    },
+    "replyWindowExpiresAt": 2025-09-21T14:03:11.000Z,
+    "rootExternalId": null,
+    "sourceUrl": null,
+    "status": "open",
+    "subject": null,
+  },
+  {
+    "attachments": [
+      {
+        "type": "image",
+        "url": "https://scontent.test/att/photo.jpg",
+      },
+    ],
+    "authorExternalId": "24100000001",
+    "body": "Do you deliver on Saturdays?",
+    "conversationExternalId": "dm:24100000001",
+    "direction": "inbound",
+    "externalId": "m_wh_0001",
+    "kind": "message",
+    "messageType": "dm",
+    "occurredAt": 2025-09-20T14:03:11.000Z,
+    "parentExternalId": null,
+    "platform": "FACEBOOK",
+    "raw": {
+      "entryId": "101010101010101",
+      "message": {
+        "attachments": [
+          {
+            "payload": {
+              "url": "https://scontent.test/att/photo.jpg",
+            },
+            "type": "image",
+          },
+        ],
+        "mid": "m_wh_0001",
+        "text": "Do you deliver on Saturdays?",
+      },
+      "recipient": {
+        "id": "101010101010101",
+      },
+      "sender": {
+        "id": "24100000001",
+      },
+      "timestamp": 1758376991000,
+    },
+    "recipientExternalIds": [
+      "101010101010101",
+    ],
+    "replyWindowExpiresAt": 2025-09-21T14:03:11.000Z,
+    "rootExternalId": null,
+    "sentAt": 2025-09-20T14:03:11.000Z,
+    "sourceUrl": null,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 8`] = `
+[
+  {
+    "avatarUrl": null,
+    "displayName": "coffee_nerd",
+    "externalId": "17800000000000301",
+    "handle": "coffee_nerd",
+    "kind": "person",
+    "occurredAt": 2026-09-19T11:20:00.000Z,
+    "platform": "INSTAGRAM",
+    "profileUrl": "https://www.instagram.com/coffee_nerd",
+    "raw": {
+      "id": "17800000000000301",
+      "name": undefined,
+      "username": "coffee_nerd",
+    },
+    "sourceUrl": null,
+  },
+  {
+    "attachments": [],
+    "authorExternalId": "17800000000000301",
+    "body": "price? 😍",
+    "conversationExternalId": "media:17890000000000001",
+    "direction": "inbound",
+    "externalId": "17990000000000001",
+    "kind": "message",
+    "messageType": "comment",
+    "occurredAt": 2026-09-19T11:20:00.000Z,
+    "parentExternalId": null,
+    "platform": "INSTAGRAM",
+    "raw": {
+      "from": {
+        "id": "17800000000000301",
+        "username": "coffee_nerd",
+      },
+      "hidden": false,
+      "id": "17990000000000001",
+      "like_count": 2,
+      "mediaId": "17890000000000001",
+      "text": "price? 😍",
+      "timestamp": "2026-09-19T11:20:00+0000",
+      "username": "coffee_nerd",
+    },
+    "rootExternalId": "17890000000000001",
+    "sentAt": 2026-09-19T11:20:00.000Z,
+    "sourceUrl": null,
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 9`] = `
+[
+  {
+    "authorExternalId": "17841400000000001",
+    "body": "New single-origin drop ☕ #coffee",
+    "externalId": "17890000000000001",
+    "kind": "post",
+    "media": [
+      {
+        "type": "video",
+        "url": "https://scontent.test/media/reel.mp4",
+      },
+    ],
+    "mediaType": "video",
+    "occurredAt": 2026-09-19T10:00:00.000Z,
+    "parentExternalId": null,
+    "platform": "INSTAGRAM",
+    "postType": "original",
+    "publishedAt": 2026-09-19T10:00:00.000Z,
+    "raw": {
+      "caption": "New single-origin drop ☕ #coffee",
+      "comments_count": 12,
+      "id": "17890000000000001",
+      "like_count": 240,
+      "media_type": "VIDEO",
+      "media_url": "https://scontent.test/media/reel.mp4",
+      "owner": {
+        "id": "17841400000000001",
+      },
+      "permalink": "https://www.instagram.com/p/ABC123/",
+      "timestamp": "2026-09-19T10:00:00+0000",
+      "username": "acmecoffee",
+    },
+    "rootExternalId": null,
+    "sourceUrl": "https://www.instagram.com/p/ABC123/",
+    "stats": {
+      "comments": 12,
+      "likes": 240,
+    },
+  },
+]
+`;
+
+exports[`normalize > matches golden snapshots for every kind 10`] = `
+[
+  {
+    "dimensions": {
+      "country": "US",
+    },
+    "externalId": "17841400000000001:follower_demographics:US",
+    "kind": "metric",
+    "metric": "follower_demographics",
+    "occurredAt": 2026-09-24T00:00:00.000Z,
+    "period": {
+      "end": 2026-09-24T00:00:00.000Z,
+      "granularity": "lifetime",
+      "start": 2026-09-24T00:00:00.000Z,
+    },
+    "platform": "INSTAGRAM",
+    "raw": {
+      "breakdown": [
+        "country",
+      ],
+      "name": "follower_demographics",
+      "result": {
+        "dimension_values": [
+          "US",
+        ],
+        "value": 812,
+      },
+    },
+    "sourceUrl": null,
+    "subjectExternalId": "17841400000000001",
+    "subjectKind": "account",
+    "value": 812,
+  },
+  {
+    "dimensions": {
+      "country": "GB",
+    },
+    "externalId": "17841400000000001:follower_demographics:GB",
+    "kind": "metric",
+    "metric": "follower_demographics",
+    "occurredAt": 2026-09-24T00:00:00.000Z,
+    "period": {
+      "end": 2026-09-24T00:00:00.000Z,
+      "granularity": "lifetime",
+      "start": 2026-09-24T00:00:00.000Z,
+    },
+    "platform": "INSTAGRAM",
+    "raw": {
+      "breakdown": [
+        "country",
+      ],
+      "name": "follower_demographics",
+      "result": {
+        "dimension_values": [
+          "GB",
+        ],
+        "value": 233,
+      },
+    },
+    "sourceUrl": null,
+    "subjectExternalId": "17841400000000001",
+    "subjectKind": "account",
+    "value": 233,
+  },
+]
+`;

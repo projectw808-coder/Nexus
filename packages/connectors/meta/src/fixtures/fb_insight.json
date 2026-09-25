@@ -1,0 +1,10 @@
+{
+  "name": "page_impressions",
+  "period": "day",
+  "values": [
+    { "value": 1520, "end_time": "2026-09-19T07:00:00+0000" },
+    { "value": 1611, "end_time": "2026-09-20T07:00:00+0000" }
+  ],
+  "id": "101010101010101/insights/page_impressions/day",
+  "subjectId": "101010101010101"
+}

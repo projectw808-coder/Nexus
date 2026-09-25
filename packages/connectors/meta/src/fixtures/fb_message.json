@@ -1,0 +1,23 @@
+{
+  "id": "m_AbCdEf123",
+  "message": "Hi, is the espresso machine still in stock?",
+  "created_time": "2026-09-20T14:03:11+0000",
+  "from": { "id": "24100000001", "name": "Jordan Customer" },
+  "to": { "data": [{ "id": "101010101010101", "name": "Acme Coffee" }] },
+  "attachments": {
+    "data": [
+      {
+        "id": "att_1",
+        "mime_type": "image/jpeg",
+        "name": "receipt.jpg",
+        "size": 20480,
+        "image_data": {
+          "url": "https://scontent.test/att/receipt.jpg",
+          "width": 800,
+          "height": 600
+        }
+      }
+    ]
+  },
+  "conversationId": "t_1"
+}

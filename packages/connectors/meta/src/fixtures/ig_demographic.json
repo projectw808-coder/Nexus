@@ -1,0 +1,16 @@
+{
+  "name": "follower_demographics",
+  "period": "lifetime",
+  "subjectId": "17841400000000001",
+  "total_value": {
+    "breakdowns": [
+      {
+        "dimension_keys": ["country"],
+        "results": [
+          { "dimension_values": ["US"], "value": 812 },
+          { "dimension_values": ["GB"], "value": 233 }
+        ]
+      }
+    ]
+  }
+}

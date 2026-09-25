@@ -1,0 +1,13 @@
+{
+  "sender": { "id": "24100000001" },
+  "recipient": { "id": "101010101010101" },
+  "timestamp": 1758376991000,
+  "message": {
+    "mid": "m_wh_0001",
+    "text": "Do you deliver on Saturdays?",
+    "attachments": [
+      { "type": "image", "payload": { "url": "https://scontent.test/att/photo.jpg" } }
+    ]
+  },
+  "entryId": "101010101010101"
+}

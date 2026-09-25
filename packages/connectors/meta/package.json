@@ -1,0 +1,25 @@
+{
+  "name": "@nexus/connector-meta",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Meta connector: Facebook Pages + Instagram over the Graph API (spec §8.1) — Facebook Login for Business, Page/IG discovery, DMs, comments, mentions, reviews, lead forms, insights, six webhook topics, usage-header budgeting, the 24-hour messaging window and the version-drift monitor.",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/graph-double.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@nexus/connector-sdk": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}
