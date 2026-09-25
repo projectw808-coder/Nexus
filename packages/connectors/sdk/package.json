@@ -3,9 +3,11 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Connector SPI, canonical entity schemas, manifest and quota shapes for Nexus platform connectors (spec §7).",
+  "description": "Connector SPI, canonical entity schemas, manifest and quota shapes, plus the connector runtime: OAuth, envelope encryption, rate limiter, circuit breaker, HTTP client, webhook verification, contract tests (spec §7).",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./contract": "./src/contract.ts",
+    "./testing": "./src/testing.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",

@@ -62,6 +62,8 @@ export interface AuthCtx<Cfg = unknown> {
   appCredentials: () => Promise<AppCredentials>;
   /** Connector-specific static configuration (e.g. TikTok provider selection, Keitaro base URL). */
   config: Cfg;
+  /** Core-injected client for the token endpoints (same retries, breaker and tracing as data calls). */
+  http: HttpClient;
   logger: Logger;
   signal: AbortSignal;
 }
@@ -83,6 +85,13 @@ export interface HttpRequest {
   /** Objects are JSON-encoded; strings/bytes are sent verbatim. */
   body?: unknown;
   timeoutMs?: number;
+  /**
+   * Endpoint id for the circuit breaker and budget windows (defaults to `METHOD /path`). Use the
+   * same ids as the manifest quota tables so observed usage lands on the right window.
+   */
+  endpoint?: string;
+  /** Per-request cancellation, combined with the ctx signal. */
+  signal?: AbortSignal;
 }
 
 export interface HttpResponse {
@@ -92,6 +101,8 @@ export interface HttpResponse {
   bodyText: string;
   /** Parses `bodyText` as JSON; throws on non-JSON. */
   json(): unknown;
+  /** How many HTTP attempts the client made (retries on 5xx/408/transport faults). */
+  attempts?: number;
 }
 
 /**
@@ -122,6 +133,8 @@ export interface BudgetReservation {
   lane: Lane;
   reservedCost: number;
   reservedAt: Date;
+  /** Carried from `ReserveRequest.resourceKey` so settle can record the dedup ledger entry. */
+  resourceKey?: string;
 }
 
 export interface ReserveRequest {
@@ -172,6 +185,12 @@ export interface ConnCtx<Cfg = unknown> {
   settings: ConnectionSettings;
   config: Cfg;
   token: () => Promise<TokenSet>;
+  /**
+   * The per-connection webhook verify secret (§5.4), for connectors that register it with the
+   * platform on `subscribeWebhooks`. Resolved from the vault at call time; `null` before a
+   * connection exists or on platforms that sign with an app-level secret.
+   */
+  webhookSecret: () => Promise<string | null>;
   budget: BudgetHandle;
   http: HttpClient;
   logger: Logger;

@@ -1,8 +1,9 @@
 /**
  * @nexus/connector-sdk — the connector SPI, canonical entity schemas, manifest
- * and quota shapes (spec §7). Types, Zod schemas and constants only; the
- * runtime pieces (RateLimiter, OAuth helpers, TokenVault, contract test
- * suite) are Phase 4 and live beside this package.
+ * and quota shapes (spec §7), plus the Phase 4 runtime: OAuth helpers, envelope
+ * encryption, the four-shape rate limiter, circuit breaker, HTTP client, webhook
+ * verification and the quota simulator. The contract test suite is exported from
+ * `@nexus/connector-sdk/contract` and test doubles from `@nexus/connector-sdk/testing`.
  */
 
 export { PLATFORMS, platformSchema, type Platform } from './platform.ts';
@@ -162,3 +163,84 @@ export {
   type HealthReport,
   type Connector,
 } from './spi.ts';
+
+// ── Phase 4 runtime ─────────────────────────────────────────────────────────
+export {
+  encryptedBlobSchema,
+  generateDataKey,
+  encryptWithDataKey,
+  decryptWithDataKey,
+  decryptToString,
+  localKeyProvider,
+  generateMasterKeyBase64,
+  type EncryptedBlob,
+  type KeyProvider,
+} from './runtime/envelope.ts';
+export {
+  generatePkcePair,
+  oauthStatePayloadSchema,
+  mintOauthState,
+  verifyOauthState,
+  buildAuthorizationUrl,
+  parseTokenResponse,
+  classifyOauthError,
+  exchangeAuthorizationCode,
+  refreshAccessToken,
+  revokeToken,
+  tokenLifecycle,
+  REFRESH_AT_FRACTION,
+  RECONNECT_WARNING_MS,
+  type OauthStatePayload,
+  type TokenLifecycle,
+} from './runtime/oauth.ts';
+export {
+  MAX_ATTEMPTS,
+  backoffDelayMs,
+  nextDelayMs,
+  isRetryable,
+  shouldRetry,
+  sleep,
+  isAbortError,
+  type BackoffOptions,
+} from './runtime/retry.ts';
+export { MemoryBudgetStore, type BudgetStore } from './runtime/budget-store.ts';
+export { RedisBudgetStore, type RedisLike } from './runtime/redis-budget-store.ts';
+export {
+  CircuitBreaker,
+  breakerKey,
+  type BreakerDoc,
+  type BreakerOptions,
+  type CircuitDecision,
+} from './runtime/circuit-breaker.ts';
+export {
+  RateLimiter,
+  LANE_FRACTIONS,
+  dayKeyIn,
+  nextMidnightIn,
+  type SpendCap,
+  type LimiterOptions,
+  type HandleParams,
+} from './runtime/rate-limiter.ts';
+export {
+  createHttpClient,
+  endpointOf,
+  parseRetryAfter,
+  observedFromHeaders,
+  type FetchLike,
+  type HttpClientOptions,
+} from './runtime/http-client.ts';
+export {
+  verifyHmacSha256,
+  signHmacSha256,
+  verifySharedSecret,
+  verifyJwtRs256,
+  type Jwk,
+  type JwtClaims,
+} from './runtime/webhooks.ts';
+export {
+  simulateQuota,
+  dailyCapacityOf,
+  type SimulationInput,
+  type SimulationResult,
+  type ResourceEstimate,
+} from './runtime/quota-simulator.ts';
