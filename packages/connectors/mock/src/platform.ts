@@ -34,6 +34,12 @@ export type MockPlatformOptions = {
   clientId?: string;
   clientSecret?: string;
   webhookSecret?: string;
+  /**
+   * Suffix for ids the platform mints at run time (replies, live comments, webhook events).
+   * Hosts whose instance restarts while consumers persist rows pass something unique per
+   * process so a fresh instance never re-issues an id an earlier one already used.
+   */
+  runtimeIdSuffix?: string;
   /** Calls per 15-minute window per token. */
   rateLimit?: number;
   apiVersion?: string;
@@ -122,6 +128,7 @@ export function createMockPlatform(opts: MockPlatformOptions = {}) {
   const clientId = opts.clientId ?? 'mock-client';
   const clientSecret = opts.clientSecret ?? 'mock-secret';
   const webhookSecret = opts.webhookSecret ?? 'mock-webhook-secret';
+  const idSuffix = opts.runtimeIdSuffix ?? '';
   const rateLimit = opts.rateLimit ?? 1000;
   const apiVersion = opts.apiVersion ?? '2026-09';
   const pageSizeMax = opts.pageSizeMax ?? 500;
@@ -432,7 +439,7 @@ export function createMockPlatform(opts: MockPlatformOptions = {}) {
       const body = (JSON.parse(req.body || '{}') as { text?: string }).text ?? '';
       if (!body.trim()) return json(422, { error: { code: 'empty_body' } }, rl.headers);
       const reply: MockComment = {
-        id: `comment_${++seq}`,
+        id: `comment_${++seq}${idSuffix}`,
         postId: parent.postId,
         accountId: parent.accountId,
         authorId: parent.accountId,
@@ -507,7 +514,7 @@ export function createMockPlatform(opts: MockPlatformOptions = {}) {
   ): Promise<EmittedWebhook> {
     stats.webhooksEmitted += 1;
     const body = JSON.stringify({
-      id: `evt_${deliverySeq + 1}`,
+      id: `evt_${deliverySeq + 1}${idSuffix}`,
       event,
       accountId: data.accountId,
       data,
@@ -538,12 +545,14 @@ export function createMockPlatform(opts: MockPlatformOptions = {}) {
     accountId: string,
     body?: string,
     path?: string,
+    /** Explicit id, for hosts whose in-memory instance restarts while its consumers persist rows. */
+    id?: string,
   ): Promise<{ comment: MockComment; webhook: EmittedWebhook }> {
     const candidates = posts.filter((p) => p.accountId === accountId);
     const post = candidates[Math.floor(rng() * candidates.length)]!;
     const userN = 1 + Math.floor(rng() * 400);
     const comment: MockComment = {
-      id: `comment_${++seq}`,
+      id: id ?? `comment_${++seq}${idSuffix}`,
       postId: post.id,
       accountId,
       authorId: `user_${userN}`,

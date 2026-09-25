@@ -299,4 +299,6 @@ export const metaManifest: ConnectorManifest = connectorManifestSchema.parse({
     'A Meta app in Live mode with Facebook Login for Business; Advanced Access on the messaging, engagement, comments, insights and leads scopes (App Review + Business Verification). Standard Access works for testing with app roles only.',
   apiVersionHeader: 'facebook-api-version',
   messagingWindowHours: 24,
+  outboundLimits: { dm: 2000, comment: 8000 },
+  outboundAttachmentTypes: [],
 } satisfies ConnectorManifest);

@@ -99,6 +99,15 @@ export const connectorManifestSchema = z
     apiVersionHeader: z.string().min(1).optional(),
     /** Messaging-window rule enforced in `preflight()` (Meta: 24 hours after the customer's last message). */
     messagingWindowHours: z.number().positive().optional(),
+    /** Character limits the composer enforces per thread kind (§12.2.A "platform-aware composer"). */
+    outboundLimits: z
+      .object({
+        dm: z.number().int().positive().optional(),
+        comment: z.number().int().positive().optional(),
+      })
+      .optional(),
+    /** MIME-type prefixes the platform accepts on outbound messages; empty = text only for now. */
+    outboundAttachmentTypes: z.array(z.string()).optional(),
   })
   .superRefine((m, ctx) => {
     const resourceIds = new Set<string>();
