@@ -1,6 +1,6 @@
 'use client';
 
-import { signOutAction } from '@/app/sign-in/actions';
+import { signOutAction } from '@/app/(site)/sign-in/actions';
 import { SubmitButton } from '@/components/submit-button';
 
 /** Ends the database session and returns to the sign-in page. */

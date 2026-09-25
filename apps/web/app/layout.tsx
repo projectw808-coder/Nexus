@@ -43,7 +43,8 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           </div>
           <ThemeToggle initial={theme} />
         </header>
-        <main id="main" className="mx-auto w-full max-w-5xl px-4 py-8">
+        {/* Workspace screens (the inbox, tables, boards) use the full width; app/(site) re-adds the measure. */}
+        <main id="main" className="mx-auto w-full px-4 py-8">
           {children}
         </main>
       </body>
