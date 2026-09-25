@@ -22,6 +22,8 @@ import type { AppSecrets, SyncDeps } from './deps.ts';
 import { createConnectorRegistry, type RegistryOptions } from './registry.ts';
 import { countingSink, type CanonicalSink } from './sink.ts';
 import { composeSinks, createConversationSink } from './sinks/conversations.ts';
+import { createIdentitySink } from './sinks/identity.ts';
+import { createTimelineSink } from './sinks/timeline.ts';
 
 export function keyProviderFromEnv(
   env: Pick<Env, 'KMS_MASTER_KEY_ID' | 'ENCRYPTION_KEY_FALLBACK'>,
@@ -125,7 +127,12 @@ export function createSyncDeps(opts: CreateDepsOptions): SyncDeps {
     logger: opts.logger,
     sink:
       opts.sink ??
-      composeSinks(countingSink(), createConversationSink(opts.runtime ?? defaultRuntime)),
+      composeSinks(
+        countingSink(),
+        createConversationSink(opts.runtime ?? defaultRuntime),
+        createTimelineSink(opts.runtime ?? defaultRuntime),
+        createIdentitySink(opts.runtime ?? defaultRuntime),
+      ),
     appSecrets: appSecretsFromEnv(opts.env),
     fetchFor: opts.fetchFor,
     appUrl: opts.env.APP_URL,

@@ -1,8 +1,9 @@
 /**
- * Stage 5 for conversations (§4.1 "materialize", scoped to what Phase 5 needs): canonical
- * persons become `Identity` rows, conversations become `Conversation` rows and messages become
- * `Message` rows, all upserted on their platform ids so replays and webhook redeliveries are
- * no-ops. Identity → Person resolution (§10) is Phase 6: `personRecordId` stays null here.
+ * Stage 5 for conversations (§4.1 "materialize"): canonical persons become `Identity` rows,
+ * conversations become `Conversation` rows and messages become `Message` rows, all upserted
+ * on their platform ids so replays and webhook redeliveries are no-ops. Identity → Person
+ * resolution (§10) is the identity sink's job, which runs after this one; a conversation whose
+ * identity is already resolved gets `personRecordId` at once.
  *
  * Messages may arrive before their conversation (a comment on a post we never fetched); the
  * sink then creates the thread from the message. A conversation's `lastMessageAt`,
@@ -16,6 +17,7 @@ import type {
 } from '@nexus/connector-sdk';
 import {
   systemActorFor,
+  upsertIdentity as upsertIdentityRow,
   type ConversationKind,
   type Prisma,
   type TenantDb,
@@ -62,6 +64,7 @@ export function createConversationSink(
 ): CanonicalSink & { stats: ConversationSinkStats } {
   const stats: ConversationSinkStats = { identities: 0, conversations: 0, messages: 0 };
 
+  const personCache = new Map<string, string | null>();
   async function upsertIdentity(
     db: TenantDb,
     workspaceId: string,
@@ -69,47 +72,36 @@ export function createConversationSink(
     p:
       CanonicalPerson | { externalId: string; handle?: string | null; displayName?: string | null },
     seenAt: Date,
+    connectionId: string,
   ): Promise<string> {
-    const existing = await db.identity.findFirst({
-      where: { workspaceId, platform, externalId: p.externalId },
-      select: { id: true, lastSeenAt: true },
-    });
     const full = 'kind' in p ? p : null;
-    if (existing) {
-      await db.identity.update({
-        where: { id: existing.id },
-        data: {
-          ...(full?.handle ? { handle: full.handle } : {}),
-          ...(full?.displayName ? { displayName: full.displayName } : {}),
-          ...(full?.avatarUrl ? { avatarUrl: full.avatarUrl } : {}),
-          ...(full?.profileUrl ? { profileUrl: full.profileUrl } : {}),
-          ...(full?.email ? { email: full.email } : {}),
-          ...(full?.phone ? { phone: full.phone } : {}),
-          ...(seenAt > existing.lastSeenAt ? { lastSeenAt: seenAt } : {}),
-          ...(full ? { raw: full.raw as Prisma.InputJsonValue } : {}),
-        },
-      });
-      return existing.id;
-    }
-    const created = await db.identity.create({
-      data: {
-        workspaceId,
-        platform,
-        externalId: p.externalId,
-        handle: p.handle ?? null,
-        displayName: p.displayName ?? null,
-        avatarUrl: full?.avatarUrl ?? null,
-        profileUrl: full?.profileUrl ?? null,
-        email: full?.email ?? null,
-        phone: full?.phone ?? null,
-        raw: (full?.raw ?? {}) as Prisma.InputJsonValue,
-        firstSeenAt: seenAt,
-        lastSeenAt: seenAt,
-      },
-      select: { id: true },
+    const r = await upsertIdentityRow(db, {
+      workspaceId,
+      platform,
+      externalId: p.externalId,
+      seenAt,
+      handle: p.handle ?? null,
+      displayName: p.displayName ?? null,
+      avatarUrl: full?.avatarUrl ?? null,
+      profileUrl: full?.profileUrl ?? null,
+      email: full?.email ?? null,
+      phone: full?.phone ?? null,
+      ...(full ? { raw: full.raw } : {}),
+      ...(full
+        ? {
+            canonical: {
+              bio: full.bio ?? null,
+              locale: full.locale ?? null,
+              timezone: full.timezone ?? null,
+              companyExternalId: full.companyExternalId ?? null,
+            },
+          }
+        : {}),
+      connectionId,
     });
-    stats.identities += 1;
-    return created.id;
+    if (r.created) stats.identities += 1;
+    personCache.set(r.id, r.personRecordId);
+    return r.id;
   }
 
   return {
@@ -134,7 +126,14 @@ export function createConversationSink(
         for (const p of persons.values())
           identityIds.set(
             p.externalId,
-            await upsertIdentity(db, batch.workspaceId, batch.platform, p, p.occurredAt),
+            await upsertIdentity(
+              db,
+              batch.workspaceId,
+              batch.platform,
+              p,
+              p.occurredAt,
+              batch.connectionId,
+            ),
           );
 
         const conversationIds = new Map<string, string>();
@@ -169,6 +168,7 @@ export function createConversationSink(
                 batch.platform,
                 { externalId: seed.customerExternalId },
                 seed.at,
+                batch.connectionId,
               ));
           const created = await db.conversation.create({
             data: {
@@ -179,6 +179,7 @@ export function createConversationSink(
               externalId,
               subject: seed.subject,
               identityId,
+              personRecordId: identityId ? (personCache.get(identityId) ?? null) : null,
               lastMessageAt: seed.at,
               parentExternalId: seed.parentExternalId,
             },
@@ -221,6 +222,7 @@ export function createConversationSink(
                   displayName: customer.displayName,
                 },
                 c.occurredAt,
+                batch.connectionId,
               ));
             data.identity = { connect: { id: idn } };
           }
@@ -250,6 +252,7 @@ export function createConversationSink(
                   batch.platform,
                   { externalId: m.authorExternalId },
                   m.sentAt,
+                  batch.connectionId,
                 )))
               : null;
           const existing = await db.message.findFirst({
