@@ -49,3 +49,6 @@ export {
 } from './fractional-index.ts';
 export { parseCsv, detectDelimiter, toCsv } from './csv.ts';
 export type { CsvTable } from './csv.ts';
+
+// ── Phase 6: identity resolution (§10) ───────────────────────────────────────
+export * from './identity/index.ts';
