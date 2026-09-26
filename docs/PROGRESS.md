@@ -546,16 +546,64 @@ none of the three shipped this phase · the full integrations hub, health consol
 simulator UI surfacing the numbers these connectors already compute (Phase 9, the simulator and
 budget snapshot themselves are done at the SDK level since Phase 4).
 
-## Phase 9 — Integrations hub & health console
+## Phase 9 — Integrations hub & health console ✅
 
 Connection grid, detail tabs, field mapping UI with live preview, webhook delivery log + replay,
 the workspace health console, the quota simulator, reconnect flows, disconnect-and-purge.
 
-- [ ] a token expiring in 3 days shows a countdown, emails the owner, and pauses only its own
-      connection
-- [ ] a deliberately broken webhook signature shows up as rejected with a remediation string
-- [ ] the simulator's estimate for a seeded volume is within 20% of observed consumption over a
-      24h run
+- [x] a token expiring in 3 days shows a countdown, emails the owner, and pauses only its own
+      connection — `sweepTokens` (`packages/sync/src/token-refresh.ts`) pauses exactly one
+      connection to `RECONNECT_REQUIRED` via `setConnectionStatus` and calls
+      `Notifier.reconnectRequired(...)`; `mailNotifier` (new, `@nexus/mail`) sends the workspace
+      owner a real `reconnectRequiredEmail`. The connection grid card computes its countdown from
+      `tokenLifecycle()`'s `reconnect_soon`/`expired` states independently per card, so a second
+      connection's token is untouched — proven by `packages/sync/src/token-refresh.test.ts` (one
+      connection paused, sibling connections' status unchanged) and the mail templates' own
+      `reconnect-required.test.ts`.
+- [x] a deliberately broken webhook signature shows up as rejected with a remediation string —
+      `unverifiedWebhookError()` (`packages/sync/src/webhooks.ts`) builds a `VALIDATION`
+      `NexusError` from the failure taxonomy and its `.remediation` is persisted on the
+      `WebhookEvent` row (new `remediation` column, migration `20261001000000_webhook_remediation`)
+      and surfaced by the connection detail Webhooks tab next to the rejected delivery.
+- [x] the simulator's estimate for a seeded volume is within 20% of observed consumption over a
+      24h run — `packages/sync/src/quota-accuracy.test.ts`: 24 hourly polls against the Mock
+      platform's real rate-limiter budget, compared against `simulateQuota`'s projection for the
+      same resource/volume; ratio asserted strictly between 0.8 and 1.2.
+
+What was built:
+
+- **Connection grid** (`.../settings/integrations`): one card per connection — status pill,
+  expiry countdown, a `Meter` for the primary rate-budget window, a 7-day `Sparkline`, last-sync
+  time, and (for a user with `CONFIGURE` on that connection) a pause/resume toggle. The
+  sparkline reads `SyncRun` bucketed by UTC day in application code (`dailyRunActivity`,
+  `packages/db/src/sync/runs.ts`) rather than a new time-series table — `BudgetSnapshot` is a
+  live point-in-time read with no history of its own (ADR-020).
+- **Connection detail** (`.../integrations/[connectionId]/{overview,data,mapping,permissions,
+  webhooks,activity,danger}`): Overview (account details, budget meters, capability
+  degradation, recent `IntegrationError`s); Data & resources (per-resource enable/interval/
+  backfill settings); Field mapping (create/select a mapping, edit rules, live
+  `previewFieldMapping` against real `ExternalObject.raw` samples — deliberately not wired into
+  the live normalize pipeline, a scoped deferral, ADR-020); Permissions (grant CRUD against the
+  `ConnectionGrant`/`ConnPermission` system that CASL/`resolveActor` already enforced since an
+  earlier phase — Phase 9 only needed the CRUD surface); Webhooks (delivery log, verified/
+  rejected with remediation, replay); Activity (`SyncRun` history, dead-letter retry); Danger
+  zone (typed-confirmation disconnect + purge).
+- **Health console** (`.../settings/health`): workspace-wide "everything is fine" banner,
+  tokens expiring within 30 days, failed runs (24h), webhook delivery stats (24h: total,
+  rejected, unprocessed, avg/max lag), per-connection budget cards, and a drift section that
+  reads "not measured yet" rather than fabricate a zero — `ConnectionDriftSample` has no writers
+  anywhere yet (§9.1 nightly reconciliation is unbuilt, unchanged from Phase 8's status).
+- **`@nexus/mail`** (new package): `apps/web/lib/mail/` extracted so both web (magic links) and
+  the worker (reconnect-required) can send mail — mirrors ADR-004's telemetry-package precedent
+  (ADR-020). `loggingNotifier` remains the sync package's default; the worker wires in
+  `mailNotifier` at bootstrap.
+- Migration `20261001000000_webhook_remediation` (`WebhookEvent.remediation`).
+- ADR-020 (mail package extraction, field-mapping scoping, sparkline data source).
+
+**Deferred:** field-mapping rules affecting live `normalize()` output (§9's full resolution
+chain — explicit rule → connector default → `_unmapped` — is previewed but not binding, see
+ADR-020) · nightly drift reconciliation (§9.1, still no `ConnectionDriftSample` writer) ·
+Keitaro `keitaro.clicks` fetching (carried over from Phase 8, unchanged).
 
 ## Phase 10 — Automation + AI
 
