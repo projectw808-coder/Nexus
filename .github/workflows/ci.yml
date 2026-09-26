@@ -98,6 +98,32 @@ jobs:
           name: playwright-traces
           path: apps/web/test-results
           retention-days: 7
-      # Phase 3+: - name: Lighthouse CI budgets              run: pnpm dlx @lhci/cli autorun
-      # Phase 4+: - name: k6 smoke (10k webhooks/min)         run: k6 run infra/k6/webhooks.js
-      # Phase 4+: coverage floor 80% in packages/core and packages/connectors/* (vitest --coverage)
+
+      - name: Lighthouse CI budgets (§2 — 50-record list LCP < 2.0s, TTFB < 300ms)
+        # Reuses the same e2e server (port 3200, E2E_AUTH_BYPASS, apps/web/.lighthouserc.json)
+        # Playwright just built and seeded above — no separate build or seed needed.
+        working-directory: apps/web
+        run: pnpm dlx @lhci/cli@0.14 autorun
+      - name: Upload Lighthouse reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: apps/web/.lighthouseci
+          retention-days: 7
+
+      - name: Coverage (informational — §15 floor is 80% in packages/core and packages/connectors/*)
+        # Not yet a hard gate: see docs/PROGRESS.md Phase 11 for the current numbers per package.
+        # Flip to blocking once every package listed there clears the threshold in its own
+        # vitest.config.ts (already configured; `pnpm --filter <pkg> coverage` reports it locally).
+        continue-on-error: true
+        run: |
+          for pkg in core connector-sdk connector-meta connector-mock connector-x connector-linkedin connector-tiktok connector-youtube connector-keitaro; do
+            pnpm --filter "@nexus/$pkg" coverage || true
+          done
+
+      # k6 load test (§15 "10k webhooks/min ingest", §2 "webhook ingest ack p99 < 200ms") is not
+      # run on every PR — it needs a live server plus a real connection id/webhook secret to sign
+      # against, which a CI job would have to seed and extract first. Run it on demand:
+      #   node apps/web/e2e/server.cjs &
+      #   k6 run -e BASE_URL=http://localhost:3200 -e CONNECTION_ID=<id> -e WEBHOOK_SECRET=<secret> infra/k6/webhooks.js

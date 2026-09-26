@@ -1,0 +1,28 @@
+{
+  "ci": {
+    "collect": {
+      "startServerCommand": "node e2e/server.cjs",
+      "startServerReadyPattern": "Local:|ready",
+      "startServerReadyTimeout": 240000,
+      "numberOfRuns": 3,
+      "url": [
+        "http://localhost:3200/api/e2e/session?email=alice%40e2e.test&next=%2Fw%2Fe2e%2Frecords%2Fwidget",
+        "http://localhost:3200/api/e2e/session?email=alice%40e2e.test&next=%2Fw%2Fe2e%2Finbox"
+      ],
+      "settings": {
+        "onlyCategories": ["performance"],
+        "skipAudits": ["uses-http2"]
+      }
+    },
+    "assert": {
+      "assertions": {
+        "largest-contentful-paint": ["error", { "maxNumericValue": 2000 }],
+        "server-response-time": ["error", { "maxNumericValue": 300 }]
+      }
+    },
+    "upload": {
+      "target": "filesystem",
+      "outputDir": "./.lighthouseci"
+    }
+  }
+}
