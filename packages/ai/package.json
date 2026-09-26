@@ -3,18 +3,22 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "description": "The AI layer (spec §13): the AiModel provider seam, a versioned prompt registry with Zod-validated structured output, PII redaction, per-workspace kill switch and token budget, summaries, relationship briefs, AI research attributes, reply drafting, transparent lead scoring and hybrid semantic search. Depends only on @nexus/core and @nexus/db (ADR-021).",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@nexus/core": "workspace:*",
+    "@nexus/db": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
   }
 }

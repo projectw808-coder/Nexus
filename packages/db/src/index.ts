@@ -167,3 +167,7 @@ export {
   previewFieldMapping,
 } from './objects/field-mappings.ts';
 export type { FieldMappingRow, FieldMappingRuleRow } from './objects/field-mappings.ts';
+
+// ── Phase 10: hybrid semantic search (§13.6) — called by @nexus/ai ──────────
+export { hybridSearch, toVectorLiteral } from './search/semantic.ts';
+export type { HybridSearchHit } from './search/semantic.ts';
