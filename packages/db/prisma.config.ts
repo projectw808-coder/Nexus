@@ -11,6 +11,9 @@ const url =
   process.env['DATABASE_ADMIN_URL'] ??
   process.env['DATABASE_URL'] ??
   'postgresql://nexus:nexus@localhost:5432/nexus';
+// Prisma 7 moved shadow-database configuration off the `migrate diff --shadow-database-url` CLI
+// flag (removed) and onto this config; scripts/drift-gate.ts relies on it.
+const shadowDatabaseUrl = process.env['SHADOW_DATABASE_URL'];
 
 export default defineConfig({
   schema: 'prisma/schema.prisma',
@@ -18,5 +21,5 @@ export default defineConfig({
     path: 'prisma/migrations',
     seed: 'tsx prisma/seed.ts',
   },
-  datasource: { url },
+  datasource: { url, ...(shadowDatabaseUrl ? { shadowDatabaseUrl } : {}) },
 });

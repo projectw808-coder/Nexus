@@ -52,11 +52,16 @@ const diff = spawnSync(
     'prisma/migrations',
     '--to-schema',
     'prisma/schema.prisma',
-    '--shadow-database-url',
-    shadowUrl,
     '--script',
   ],
-  { cwd: root, encoding: 'utf8', env: process.env, shell: process.platform === 'win32' },
+  {
+    cwd: root,
+    encoding: 'utf8',
+    // Prisma 7 removed the `--shadow-database-url` flag; the shadow URL now comes from
+    // prisma.config.ts's `datasource.shadowDatabaseUrl`, which reads this same env var.
+    env: { ...process.env, SHADOW_DATABASE_URL: shadowUrl },
+    shell: process.platform === 'win32',
+  },
 );
 
 if (diff.status !== 0 && !diff.stdout) {
