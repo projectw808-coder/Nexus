@@ -4,9 +4,10 @@
  * Phase 9 integrations hub renders; tokens are never returned (§5.4). Cross-connection
  * permission uses the per-connection CASL subject so grants apply.
  */
-import { connectionSettingsSchema, PLATFORMS } from '@nexus/connector-sdk';
+import { connectionSettingsSchema, PLATFORMS, simulateQuota } from '@nexus/connector-sdk';
 import { NexusError } from '@nexus/core';
 import {
+  dailyRunActivity,
   diffOf,
   getConnection,
   listDeadLetters,
@@ -77,6 +78,46 @@ export const connectionRouter = router({
         errors,
         budget: snapshot,
       };
+    }),
+
+  /** The grid card's 7-day sparkline (§12.2.C). */
+  dailyActivity: tenantProcedure
+    .use(authorize('read', 'Connection'))
+    .input(id.extend({ days: z.number().int().min(1).max(30).default(7) }))
+    .query(async ({ ctx, input }) => {
+      await loadOrThrow(ctx, input.id);
+      return dailyRunActivity(ctx.db, input.id, input.days);
+    }),
+
+  /**
+   * The pre-connect quota simulation and the connection-detail "what will this cost" preview
+   * (§12.2.C): a pure projection from the platform's manifest, not a live budget read.
+   */
+  simulateQuota: tenantProcedure
+    .use(authorize('read', 'Connection'))
+    .input(
+      z.object({
+        platform: z.enum(PLATFORMS),
+        resources: z.array(
+          z.object({ id: z.string(), intervalSeconds: z.number().int().positive().optional() }),
+        ),
+        volume: z.record(
+          z.string(),
+          z.object({
+            itemsPerDay: z.number().nonnegative(),
+            pageSize: z.number().int().positive().optional(),
+          }),
+        ),
+        tier: z
+          .object({ dailyCapacity: z.number().positive().optional(), label: z.string().optional() })
+          .optional(),
+        monthlyCapUnits: z.number().positive().optional(),
+        backfillDays: z.number().int().positive().optional(),
+      }),
+    )
+    .query(({ ctx, input }) => {
+      const connector = ctx.sync.registry.get(input.platform);
+      return simulateQuota({ ...input, manifest: connector.manifest });
     }),
 
   /** Where the browser should go to start connecting a platform (the route sets the PKCE cookie). */

@@ -59,6 +59,38 @@ export async function finishRun(
   });
 }
 
+/**
+ * Objects ingested per UTC day over the last N days (the grid card's sparkline, §12.2.C).
+ * `SyncRun` is one row per resource poll — far lower cardinality than `ExternalObject` — so
+ * bucketing in memory is cheap even for a busy connection; no rollup table needed.
+ */
+export async function dailyRunActivity(
+  db: TenantDb,
+  connectionId: string,
+  days = 7,
+): Promise<{ date: string; itemsFetched: number; runs: number; failed: number }[]> {
+  const since = new Date(Date.now() - days * 86_400_000);
+  const rows = await db.syncRun.findMany({
+    where: { connectionId, startedAt: { gte: since } },
+    select: { startedAt: true, itemsFetched: true, status: true },
+  });
+  const buckets = new Map<string, { itemsFetched: number; runs: number; failed: number }>();
+  for (const row of rows) {
+    const day = row.startedAt.toISOString().slice(0, 10);
+    const bucket = buckets.get(day) ?? { itemsFetched: 0, runs: 0, failed: 0 };
+    bucket.itemsFetched += row.itemsFetched;
+    bucket.runs += 1;
+    if (row.status === 'FAILED') bucket.failed += 1;
+    buckets.set(day, bucket);
+  }
+  const out: { date: string; itemsFetched: number; runs: number; failed: number }[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const date = new Date(Date.now() - i * 86_400_000).toISOString().slice(0, 10);
+    out.push({ date, ...(buckets.get(date) ?? { itemsFetched: 0, runs: 0, failed: 0 }) });
+  }
+  return out;
+}
+
 /** Runs a previous worker left RUNNING — marked cancelled at startup so the UI does not show ghosts. */
 export async function cancelStaleRuns(
   db: TenantDb,
