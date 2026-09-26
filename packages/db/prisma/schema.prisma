@@ -386,9 +386,11 @@ model Workspace {
   fieldMappings                FieldMapping[]
   fieldMappingRules            FieldMappingRule[]
   workflows                    Workflow[]
+  workflowVersions             WorkflowVersion[]
   workflowRuns                 WorkflowRun[]
   aiInsights                   AiInsight[]
   embeddings                   Embedding[]
+  aiUsages                     AiUsage[]
   auditLogs                    AuditLog[]
   tasks                        Task[]
   notes                        Note[]
@@ -441,6 +443,7 @@ model User {
   approvedOutboundActions      OutboundAction[]              @relation("OutboundActionApprovedBy")
   resolvedIntegrationErrors    IntegrationError[]
   createdWorkflows             Workflow[]
+  createdWorkflowVersions      WorkflowVersion[]
   acceptedAiInsights           AiInsight[]
   auditLogs                    AuditLog[]
   assignedTasks                Task[]                        @relation("TaskAssignee")
@@ -888,6 +891,10 @@ model Identity {
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
   deletedAt             DateTime?
+
+  /// Embedding of a best-effort bio/headline/description pulled from `raw` (ADR-021): a Tier-3
+  /// signal for the nightly re-score only (§10, ADR-017), never the ingest-time resolver.
+  bioEmbedding Unsupported("vector(1536)")?
 
   workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   personRecord Record?   @relation(fields: [personRecordId], references: [id], onDelete: SetNull)
@@ -1713,18 +1720,44 @@ model Workflow {
   conditions  Json      @default("[]")
   actions     Json      @default("[]")
   version     Int       @default(1)
+  /// Per-action scratch pad keyed by the action's own `id` (ADR-021) — e.g. the round-robin
+  /// assignment cursor. Not run history; that is `WorkflowRun`.
+  state       Json      @default("{}")
   lastRunAt   DateTime?
   createdById String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   deletedAt   DateTime?
 
-  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdBy User?         @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?             @relation(fields: [createdById], references: [id], onDelete: SetNull)
   runs      WorkflowRun[]
+  versions  WorkflowVersion[]
 
   @@index([workspaceId, enabled])
   @@index([createdById])
+}
+
+/// A snapshot of a Workflow's trigger/conditions/actions at the moment it was saved, so
+/// "versioning with rollback" (§14) is copying an old row back onto the live one, not guessing
+/// at an opaque diff. Log table: no deletedAt.
+model WorkflowVersion {
+  id          String   @id @default(uuid())
+  workspaceId String
+  workflowId  String
+  version     Int
+  trigger     Json
+  conditions  Json
+  actions     Json
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([workflowId, version])
+  @@index([workspaceId, workflowId, version(sort: Desc)])
 }
 
 /// One workflow execution. Log table: no deletedAt.
@@ -1738,12 +1771,16 @@ model WorkflowRun {
   context     Json      @default("{}")
   steps       Json      @default("[]")
   error       String?
+  /// Idempotency key derived from the triggering event (ADR-021): null for a manual run or a
+  /// dry run, set for anything fired by `reactToEvent` so a redelivered event cannot double-run.
+  triggerKey  String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   workflow  Workflow  @relation(fields: [workflowId], references: [id], onDelete: Cascade)
 
+  @@unique([workflowId, triggerKey])
   @@index([workspaceId, workflowId, startedAt(sort: Desc)])
   @@index([workspaceId, status, startedAt(sort: Desc)])
   @@index([workflowId])
@@ -1801,6 +1838,26 @@ model Embedding {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, sourceType, sourceId, model, chunkIndex])
+}
+
+/// Cost/usage ledger (§13 "per-workspace token budgets and cost accounting"). Append-only: no
+/// updatedAt/deletedAt. `checkAiAllowed` sums this table for the current month against
+/// `Workspace.settings.ai.monthlyTokenBudget`.
+model AiUsage {
+  id               String   @id @default(uuid())
+  workspaceId      String
+  /// "summary" | "relationship_brief" | "research" | "reply_draft" | "embedding"…
+  feature          String
+  model            String
+  promptTokens     Int
+  completionTokens Int
+  costCents        Int
+  createdAt        DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt(sort: Desc)])
+  @@index([workspaceId, feature, createdAt(sort: Desc)])
 }
 
 /// Immutable audit trail (§5.4): auth events, permission changes, connection
