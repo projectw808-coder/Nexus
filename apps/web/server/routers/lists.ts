@@ -206,6 +206,55 @@ export const listRouter = router({
       });
       return { id: list.id };
     }),
+
+  /** Home screen (§12.1 "stalled deals"): pipeline entries nobody has touched in a while, oldest
+   * first, across every pipeline. Excludes the default won/lost stage ids — a custom pipeline
+   * that doesn't use those ids just won't get this exclusion, a disclosed simplification rather
+   * than modeling per-pipeline stage categories here. */
+  stalled: tenantProcedure
+    .use(authorize('read', 'List'))
+    .input(
+      z.object({
+        days: z.number().int().positive().default(14),
+        limit: z.number().int().positive().max(50).default(10),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const since = new Date(Date.now() - input.days * 86_400_000);
+      const rows = await ctx.db.listEntry.findMany({
+        where: {
+          deletedAt: null,
+          updatedAt: { lt: since },
+          stage: { notIn: ['won', 'lost'] },
+          list: { kind: 'PIPELINE', deletedAt: null },
+        },
+        orderBy: { updatedAt: 'asc' },
+        take: input.limit,
+        include: {
+          list: { select: { id: true, name: true, objectTypeId: true } },
+          record: { select: { id: true, values: true } },
+        },
+      });
+      const attrsByObjectType = new Map<string, Awaited<ReturnType<typeof attributesFor>>>();
+      const out = [];
+      for (const r of rows) {
+        let attrs = attrsByObjectType.get(r.list.objectTypeId);
+        if (!attrs) {
+          attrs = await attributesFor(ctx.db, r.list.objectTypeId);
+          attrsByObjectType.set(r.list.objectTypeId, attrs);
+        }
+        out.push({
+          entryId: r.id,
+          recordId: r.record.id,
+          label: recordLabel(attrs, r.record.values as Record<string, unknown>),
+          listId: r.list.id,
+          listName: r.list.name,
+          stage: r.stage,
+          updatedAt: r.updatedAt,
+        });
+      }
+      return out;
+    }),
 });
 
 export const listEntryRouter = router({

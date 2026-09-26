@@ -282,6 +282,7 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.listId }),
     crossInput: (ids) => ({ id: ids.listId }),
   },
+  'list.stalled': { tier: 'tenant', input: () => ({}) },
   'listEntry.add': {
     tier: 'tenant',
     input: (ids) => ({ listId: ids.listId, recordId: ids.spareRecordId }),
