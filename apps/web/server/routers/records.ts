@@ -212,6 +212,15 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           targetId: row.id,
           diff: { objectType: ot.apiSlug, values: row.values },
         });
+        await ctx.jobs.dispatch('automate.react', {
+          workspaceId: ctx.workspace.id,
+          type: 'record.created',
+          occurredAt: new Date().toISOString(),
+          recordId: row.id,
+          objectTypeApiSlug: ot.apiSlug,
+          payload: { values: row.values },
+          causation: { workflowIds: [] },
+        });
         return { ...publicRecord(ctx.actor, attrs, row), label: recordLabel(attrs, row.values) };
       }),
 
@@ -225,7 +234,7 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
             deletedAt: null,
             ...(fixed ? { objectType: { apiSlug: fixed } } : {}),
           },
-          select: { objectTypeId: true },
+          select: { objectTypeId: true, objectType: { select: { apiSlug: true } } },
         });
         if (!existing) throw new NexusError('NOT_FOUND');
         const attrs = await attributesFor(ctx.db, existing.objectTypeId);
@@ -255,6 +264,16 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           targetId: after.id,
           diff: changed,
         });
+        if (changedTitles.length)
+          await ctx.jobs.dispatch('automate.react', {
+            workspaceId: ctx.workspace.id,
+            type: 'record.updated',
+            occurredAt: new Date().toISOString(),
+            recordId: after.id,
+            objectTypeApiSlug: existing.objectType.apiSlug,
+            payload: { changed, values: after.values },
+            causation: { workflowIds: [] },
+          });
         return {
           ...publicRecord(ctx.actor, attrs, after),
           label: recordLabel(attrs, after.values),

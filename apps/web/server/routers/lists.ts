@@ -227,6 +227,16 @@ export const listEntryRouter = router({
         targetId: e.id,
         diff: { listId: input.listId, recordId: input.recordId, stage: e.stage },
       });
+      await ctx.jobs.dispatch('automate.react', {
+        workspaceId: ctx.workspace.id,
+        type: 'list.entry_added',
+        occurredAt: new Date().toISOString(),
+        recordId: input.recordId,
+        listId: input.listId,
+        entryId: e.id,
+        payload: { stage: e.stage },
+        causation: { workflowIds: [] },
+      });
       return e;
     }),
 
@@ -282,7 +292,7 @@ export const listEntryRouter = router({
           where: { id: e.id },
           select: { recordId: true, list: { select: { id: true, name: true, kind: true } } },
         });
-        if (entry)
+        if (entry) {
           await emitTimelineEvent(ctx.db, {
             workspaceId: ctx.workspace.id,
             dedupeKey: `stage:${e.id}:${Date.now()}`,
@@ -298,6 +308,17 @@ export const listEntryRouter = router({
               to: e.stage,
             },
           });
+          await ctx.jobs.dispatch('automate.react', {
+            workspaceId: ctx.workspace.id,
+            type: 'list.stage_changed',
+            occurredAt: new Date().toISOString(),
+            recordId: entry.recordId,
+            listId: entry.list.id,
+            entryId: e.id,
+            payload: { from: before?.stage ?? null, to: e.stage },
+            causation: { workflowIds: [] },
+          });
+        }
       }
       await ctx.audit({
         action: 'list_entry.moved',
