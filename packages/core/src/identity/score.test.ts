@@ -136,6 +136,13 @@ describe('scorePair', () => {
     const id = subjectBuilder('identity', 'i1', 'x').name('Bob Stone').build();
     expect(scorePair(person().build(), id).decision).toBe('none');
   });
+  it('tier 3: a similar bio embedding is a weak signal, only when supplied', () => {
+    const id = subjectBuilder('identity', 'i1', 'x').name('Bob Stone').build();
+    expect(scorePair(person().build(), id, 0.9).signals[0]?.kind).toBe('BIO_EMBEDDING');
+    expect(scorePair(person().build(), id, 0.9).decision).toBe('suggest');
+    expect(scorePair(person().build(), id).decision).toBe('none');
+    expect(scorePair(person().build(), id, 0.5).decision).toBe('none');
+  });
   it('is symmetric', () => {
     const a = person().build();
     const b = subjectBuilder('identity', 'i1', 'x')

@@ -8,8 +8,9 @@
  * Tier 2 (0.7–0.95): identical handle on another platform plus a corroborating signal ·
  *   same company domain + same display name · a bio link resolving to a known profile URL.
  * Tier 3 (0.4–0.7, suggest only): fuzzy name (trigram ≥ 0.85) + same locale/timezone · fuzzy
- *   name alone · handle alone. Avatar perceptual hashes and bio embeddings are not computed
- *   yet (no media pipeline before Phase 9, no AI layer before Phase 10) — see ADR-017.
+ *   name alone · handle alone · bio embedding cosine similarity ≥ 0.85 (ADR-017, ADR-021 —
+ *   computed by the nightly re-score only, never the ingest-time resolver). Avatar perceptual
+ *   hashes are still not computed (no media pipeline yet — see ADR-017).
  *
  * Auto-merge only at ≥ 0.9 AND (≥ 1 Tier-1 signal OR ≥ 2 Tier-2 signals). Otherwise ≥ 0.4
  * becomes a suggestion; below that, nothing.
@@ -62,7 +63,8 @@ export type SignalKind =
   | 'BIO_LINK'
   | 'NAME_FUZZY'
   | 'NAME_FUZZY_LOCALE'
-  | 'HANDLE_ONLY';
+  | 'HANDLE_ONLY'
+  | 'BIO_EMBEDDING';
 
 /** The `LinkMethod` enum in the schema, kept as strings so core stays free of the db package. */
 export type LinkMethodName =
@@ -103,6 +105,8 @@ export type PairScore = {
 export const AUTO_THRESHOLD = 0.9;
 export const SUGGEST_THRESHOLD = 0.4;
 export const NAME_SIMILARITY_MIN = 0.85;
+/** Cosine similarity floor for the bio-embedding Tier-3 signal (ADR-017, ADR-021). */
+export const BIO_EMBEDDING_SIMILARITY_MIN = 0.85;
 
 export function emptySubject(kind: MatchSubject['kind'], id: string, label: string): MatchSubject {
   return {
@@ -207,8 +211,17 @@ function sameRef(x: ExternalRef, y: ExternalRef): boolean {
   return x.platform === y.platform && x.externalId === y.externalId;
 }
 
-/** Score one pair. Symmetric: `scorePair(a, b)` and `scorePair(b, a)` agree on score and decision. */
-export function scorePair(left: MatchSubject, right: MatchSubject): PairScore {
+/**
+ * Score one pair. Symmetric: `scorePair(a, b)` and `scorePair(b, a)` agree on score and decision.
+ * `bioSimilarity` (0..1 cosine similarity of two precomputed bio embeddings) is optional and
+ * supplied by the caller — this function stays pure and does no embedding itself (ADR-021). Only
+ * the nightly re-score currently supplies it; the ingest-time resolver leaves it undefined.
+ */
+export function scorePair(
+  left: MatchSubject,
+  right: MatchSubject,
+  bioSimilarity?: number,
+): PairScore {
   const signals: Signal[] = [];
 
   // ── Tier 1 ────────────────────────────────────────────────────────────────
@@ -358,6 +371,17 @@ export function scorePair(left: MatchSubject, right: MatchSubject): PairScore {
       right: { name: sameName[0]![1], similarity: 1 },
     });
   }
+
+  if (bioSimilarity !== undefined && bioSimilarity >= BIO_EMBEDDING_SIMILARITY_MIN)
+    signals.push({
+      kind: 'BIO_EMBEDDING',
+      tier: 3,
+      weight: 0.5,
+      method: 'AI_INFERRED',
+      label: `Bios are ${Math.round(bioSimilarity * 100)}% similar by embedding`,
+      left: { similarity: bioSimilarity },
+      right: { similarity: bioSimilarity },
+    });
 
   return combine(signals);
 }
