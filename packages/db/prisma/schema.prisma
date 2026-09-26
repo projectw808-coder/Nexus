@@ -286,6 +286,18 @@ enum ViewLayout {
   TIMELINE
 }
 
+/// The fixed widget catalogue (§12.2.E, §12.4) — never extended ad hoc; a chart need that
+/// doesn't fit one of these is a §12.4 violation waiting to happen, not a new enum value.
+enum WidgetKind {
+  STAT_TILE
+  LINE
+  BAR
+  STACKED_BAR
+  FUNNEL
+  COHORT_HEATMAP
+  TABLE
+}
+
 /// §9.2 failure taxonomy.
 enum IntegrationErrorClass {
   AUTH_EXPIRED
@@ -374,6 +386,8 @@ model Workspace {
   listEntries                  ListEntry[]
   listStageHistory             ListStageHistory[]
   savedViews                   SavedView[]
+  dashboards                   Dashboard[]
+  dashboardWidgets             DashboardWidget[]
   identities                   Identity[]
   identityLinks                IdentityLink[]
   mergeSuggestions             MergeSuggestion[]
@@ -440,6 +454,7 @@ model User {
   createdRecords               Record[]
   listStageChanges             ListStageHistory[]
   savedViews                   SavedView[]
+  ownedDashboards              Dashboard[]
   confirmedIdentityLinks       IdentityLink[]
   decidedMergeSuggestions      MergeSuggestion[]
   neverMergeDecisions          NeverMerge[]
@@ -853,6 +868,52 @@ model SavedView {
   @@index([objectTypeId])
   @@index([listId])
   @@index([ownerId])
+}
+
+/// The Reports screen (§12.2.E): a dashboard is an ordered set of widgets from the fixed
+/// catalogue (§12.4), each bound to a saved query.
+model Dashboard {
+  id          String    @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  isDefault   Boolean   @default(false)
+  ownerId     String?
+  isShared    Boolean   @default(false)
+  position    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner     User?             @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  widgets   DashboardWidget[]
+
+  @@index([workspaceId, position])
+  @@index([workspaceId, ownerId])
+  @@index([ownerId])
+}
+
+/// One tile on a dashboard. `query` is the widget's own saved query (§12.4's binding rules are
+/// enforced by the renderer, not stored here — this row is just "what data, drawn how").
+model DashboardWidget {
+  id          String     @id @default(uuid())
+  workspaceId String
+  dashboardId String
+  kind        WidgetKind
+  title       String
+  /// Data source + aggregation, shaped per `kind` — see packages/core's widgetQuerySchema.
+  query       Json       @default("{}")
+  position    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  dashboard Dashboard @relation(fields: [dashboardId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, dashboardId, position])
+  @@index([dashboardId])
 }
 
 /// Field-level visibility per role (§5.2). Enforced in CASL, serializer and export.
