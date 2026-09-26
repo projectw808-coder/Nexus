@@ -11,6 +11,8 @@ import {
 } from '@nexus/telemetry';
 import { pendingIndexBuilds, runtime } from '@nexus/db';
 import { Queue, Worker, type Job } from 'bullmq';
+import { startAiHost } from './ai.ts';
+import { startAutomationHost } from './automation.ts';
 import { startHealthServer } from './health.ts';
 import { handleSystemJob, type SystemJobData } from './processors/system.ts';
 import { createRedis } from './redis.ts';
@@ -25,6 +27,8 @@ const log = createLogger({
 
 const connection = createRedis(env.REDIS_URL);
 const syncHost = startSyncHost({ redis: connection, log });
+const automationHost = startAutomationHost({ redis: connection, log, syncDeps: syncHost.deps });
+const aiHost = startAiHost({ redis: connection, log });
 const SYNC_JOB_NAMES = new Set<string>(Object.values(SYNC_SYSTEM_JOBS));
 
 /** Wrap a processor so every job runs inside a consumer span joined to the producer's trace. */
@@ -86,7 +90,12 @@ void (async () => {
 const health = startHealthServer({
   port: env.WORKER_HEALTH_PORT,
   redis: connection,
-  workers: { [QUEUES.system]: systemWorker, ...syncHost.workers },
+  workers: {
+    [QUEUES.system]: systemWorker,
+    ...syncHost.workers,
+    [QUEUES.automate]: automationHost.worker,
+    [QUEUES.aiEnrich]: aiHost.worker,
+  },
   log,
 });
 
@@ -104,6 +113,8 @@ async function shutdown(signal: string): Promise<void> {
     systemWorker.close(),
     systemQueue.close(),
     syncHost.close(),
+    automationHost.close(),
+    aiHost.close(),
     health.close(),
   ]);
   await connection.quit().catch(() => undefined);

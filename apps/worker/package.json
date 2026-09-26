@@ -12,6 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@nexus/ai": "workspace:*",
+    "@nexus/automation": "workspace:*",
     "@nexus/config": "workspace:*",
     "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
