@@ -1,14 +1,13 @@
+import Link from 'next/link';
 import { LinkButton } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
-import { LocalDateTime } from '@/components/local-time';
 import { PermissionDenied } from '@/components/permission-denied';
-import { StatusPill } from '@/components/status-pill';
 import { api } from '@/lib/api';
 import { isCode } from '@/lib/errors';
-import { isoOf } from '@/lib/format';
 import { platformName } from '@/lib/platforms';
 import { canManage } from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
+import { ConnectionCard } from './connection-card';
 import { KeitaroConnectForm } from './keitaro-connect-form';
 
 export const dynamic = 'force-dynamic';
@@ -17,10 +16,10 @@ export const dynamic = 'force-dynamic';
 const CONNECTABLE = ['FACEBOOK', 'X', 'LINKEDIN', 'TIKTOK', 'YOUTUBE', 'MOCK'] as const;
 
 /**
- * Connections (Phase 7 minimum for the §15 e2e path; the full integrations hub with the
- * connection grid, health console and quota simulator is Phase 9): what is connected, its
- * status and last sync, and a way to connect a platform the app has credentials for. Keitaro
- * (`authKind: 'api_key'`, §8.6) has no redirect, so it gets its own form instead of a link.
+ * The integrations hub's connection grid (§12.2.C): status, token expiry, a rate-budget meter
+ * and a 7-day sparkline per card, plus the connect gallery. Keitaro (`authKind: 'api_key'`,
+ * §8.6) has no redirect, so it gets its own form instead of a link. Per-connection detail
+ * (Overview/Data/Field mapping/Permissions/Webhooks/Activity/Danger zone) lives one level down.
  */
 export default async function IntegrationsPage({
   params,
@@ -50,21 +49,32 @@ export default async function IntegrationsPage({
     throw e;
   }
   const manages = canManage(workspace.role);
-  const connectUrls = manages
-    ? await Promise.all(
-        CONNECTABLE.map(async (platform) => {
-          try {
-            const r = await client.connection.connectUrl({
-              platform,
-              returnTo: `/w/${workspace.slug}/settings/integrations`,
-            });
-            return { platform, url: r.url };
-          } catch {
-            return { platform, url: null };
-          }
-        }),
-      )
-    : [];
+  const [connectUrls, cards] = await Promise.all([
+    manages
+      ? Promise.all(
+          CONNECTABLE.map(async (platform) => {
+            try {
+              const r = await client.connection.connectUrl({
+                platform,
+                returnTo: `/w/${workspace.slug}/settings/integrations`,
+              });
+              return { platform, url: r.url };
+            } catch {
+              return { platform, url: null };
+            }
+          }),
+        )
+      : Promise.resolve([]),
+    Promise.all(
+      connections.map(async (c) => {
+        const [detail, dailyActivity] = await Promise.all([
+          client.connection.get({ id: c.id }),
+          client.connection.dailyActivity({ id: c.id }),
+        ]);
+        return { connection: c, budget: detail.budget, dailyActivity };
+      }),
+    ),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -86,10 +96,23 @@ export default async function IntegrationsPage({
           The first backfill is running; threads appear in the inbox as they land.
         </p>
       ) : null}
-      <section aria-labelledby="connections-heading" className="flex flex-col gap-3">
-        <h2 id="connections-heading" className="text-[var(--text-md)] font-semibold tracking-tight">
+
+      <div className="flex items-center justify-between">
+        <h2 className="text-[var(--text-md)] font-semibold tracking-tight">
           Connected accounts{' '}
           <span className="tnum font-normal text-ink-muted">({connections.length})</span>
+        </h2>
+        <Link
+          href={`/w/${workspace.slug}/settings/health`}
+          className="text-[var(--text-sm)] text-link underline-offset-2 hover:underline"
+        >
+          Health console
+        </Link>
+      </div>
+
+      <section aria-labelledby="connections-heading" className="flex flex-col gap-3">
+        <h2 id="connections-heading" className="sr-only">
+          Connected accounts
         </h2>
         {connections.length === 0 ? (
           <EmptyState
@@ -98,36 +121,16 @@ export default async function IntegrationsPage({
             description="Connect a platform below; its DMs, comments and mentions start landing in the inbox within seconds."
           />
         ) : (
-          <ul className="divide-y divide-[var(--border-hairline)] rounded-[var(--radius-card)] border border-hairline bg-card">
-            {connections.map((c) => (
-              <li
-                key={c.id}
-                className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-[var(--text-sm)]"
-                data-testid="connection-row"
-              >
-                <span className="font-medium">{c.label}</span>
-                <span className="text-ink-muted">{platformName(c.platform)}</span>
-                <StatusPill
-                  tone={
-                    c.status === 'CONNECTED'
-                      ? 'good'
-                      : c.status === 'DEGRADED' || c.status === 'PAUSED'
-                        ? 'warning'
-                        : 'critical'
-                  }
-                >
-                  {c.status.toLowerCase().replace('_', ' ')}
-                </StatusPill>
-                <span className="text-[var(--text-xs)] text-ink-muted">
-                  {c.lastSyncAt ? (
-                    <>
-                      last sync <LocalDateTime iso={isoOf(c.lastSyncAt) ?? ''} />
-                    </>
-                  ) : (
-                    'not synced yet'
-                  )}
-                </span>
-              </li>
+          <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            {cards.map(({ connection, budget, dailyActivity }) => (
+              <ConnectionCard
+                key={connection.id}
+                workspaceSlug={workspace.slug}
+                connection={connection}
+                budget={budget}
+                dailyActivity={dailyActivity}
+                canConfigure={manages}
+              />
             ))}
           </ul>
         )}
@@ -158,8 +161,7 @@ export default async function IntegrationsPage({
           </div>
         ) : (
           <p className="text-[var(--text-sm)] text-ink-muted">
-            Owners and admins connect platforms. The full integrations hub (health console, quota
-            simulator, field mapping) arrives in Phase 9.
+            Owners and admins connect platforms.
           </p>
         )}
       </section>
