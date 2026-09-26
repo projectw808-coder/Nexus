@@ -46,6 +46,9 @@ export type SubjectName =
   | 'CannedReply'
   | 'Workflow'
   | 'AiInsight'
+  // Phase 11 (§5.5) — the compliance layer.
+  | 'ConsentRecord'
+  | 'DataSubjectRequest'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -90,6 +93,10 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       // Automations affect the whole team; AI insight generation/accept/dismiss is lighter.
       can(['create', 'update', 'delete'], 'Workflow');
       can(['create', 'read', 'update'], 'AiInsight');
+      // Managers own customer relationships, so they record a consent withdrawal; filing or
+      // deciding a data-subject request stays with owners/admins (they only read the queue).
+      can(['create', 'update'], 'ConsentRecord');
+      cannot(['create', 'update', 'delete'], 'DataSubjectRequest');
       cannot('read', ['ApiKey', 'ConnectionGrant']);
       break;
     case 'MEMBER':

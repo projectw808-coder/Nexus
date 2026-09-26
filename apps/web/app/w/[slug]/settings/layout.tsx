@@ -22,6 +22,7 @@ export default async function SettingsLayout({
     { label: 'Health', href: `${base}/health` },
     { label: 'Canned replies', href: `${base}/canned-replies` },
     { label: 'AI', href: `${base}/ai` },
+    { label: 'Compliance', href: `${base}/compliance` },
     // Members and viewers cannot read the log; the tab still shows so the closed door is visible.
     {
       label: canReadAudit(workspace.role) ? 'Audit log' : 'Audit log (restricted)',

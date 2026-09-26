@@ -77,3 +77,11 @@ export const canManageWorkflows = canDeleteRecords;
 
 /** Everyone but viewers can trigger AI generation and accept/dismiss what comes back. */
 export const canUseAi = canWriteRecords;
+
+// ── Phase 11: the compliance layer (§5.5, mirrors server/abilities.ts) ───────
+
+/** Owners and admins file and decide data-subject requests. */
+export const canManageDsr = canManage;
+
+/** Owners, admins and managers record a consent grant or withdrawal. */
+export const canRecordConsent = canDeleteRecords;

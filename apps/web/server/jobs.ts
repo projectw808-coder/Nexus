@@ -13,19 +13,31 @@ import type { AutomationEvent } from '@nexus/automation';
 import {
   runIndexBuild,
   dropIndexArtifacts,
+  purgeConnectionRetention,
   purgeDeletedAttributes,
+  runDataSubjectRequest,
   runtime as defaultRuntime,
   type TenantRuntime,
 } from '@nexus/db';
 import { createLogger } from '@nexus/telemetry';
 import type { Queue } from 'bullmq';
 
-export type JobName = 'index.build' | 'index.drop' | 'attribute.purge' | 'automate.react';
+export type JobName =
+  | 'index.build'
+  | 'index.drop'
+  | 'attribute.purge'
+  | 'automate.react'
+  // Phase 11 (§5.5): compliance housekeeping. `dsr.process` is dispatched the moment a request
+  // row is created — a person filing a DSAR should not wait for a scheduled sweep.
+  | 'retention.purge'
+  | 'dsr.process';
 export type JobPayload = {
   'index.build': { attributeId: string };
   'index.drop': { attributeId: string };
   'attribute.purge': Record<string, never>;
   'automate.react': AutomationEvent;
+  'retention.purge': Record<string, never>;
+  'dsr.process': { workspaceId: string; requestId: string };
 };
 
 const QUEUE_FOR: Record<JobName, QueueName> = {
@@ -33,6 +45,8 @@ const QUEUE_FOR: Record<JobName, QueueName> = {
   'index.drop': QUEUES.system,
   'attribute.purge': QUEUES.system,
   'automate.react': QUEUES.automate,
+  'retention.purge': QUEUES.system,
+  'dsr.process': QUEUES.system,
 };
 
 export type JobDispatcher = {
@@ -76,7 +90,20 @@ export async function runJobInline(
     case 'automate.react':
       await runAutomateInline(runtime, payload as AutomationEvent);
       return;
+    case 'retention.purge':
+      await purgeConnectionRetention(runtime);
+      return;
+    case 'dsr.process':
+      await runDataSubjectRequest(runtime, payload as JobPayload['dsr.process']);
+      return;
   }
+}
+
+/** A stable job id where one exists (so a retry cannot double-run), a unique one otherwise. */
+function jobIdFor(name: JobName, payload: JobPayload[JobName]): string {
+  if ('attributeId' in payload) return `${name}:${payload.attributeId}`;
+  if ('requestId' in payload) return `${name}:${payload.requestId}`;
+  return `${name}:${Date.now()}`;
 }
 
 const queuePromises = new Map<QueueName, Promise<Queue | null>>();
@@ -126,7 +153,7 @@ export function createDispatcher(runtime: TenantRuntime = defaultRuntime): JobDi
       const queue = await queueFor(QUEUE_FOR[name]);
       if (queue) {
         await queue.add(name, payload, {
-          jobId: `${name}:${'attributeId' in payload ? payload.attributeId : Date.now()}`,
+          jobId: jobIdFor(name, payload),
         });
         return { mode: 'queued' };
       }

@@ -175,3 +175,10 @@ export type { HybridSearchHit } from './search/semantic.ts';
 // ── Phase 11: Appendix B seed & demo data ────────────────────────────────────
 export { seedDemo, seedEmpty } from './seed/index.ts';
 export type { SeedOptions } from './seed/index.ts';
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Phase 11 — the compliance layer (§5.5, ADR-022): consent, retention purge,
+// DSAR export/erasure, the export-storage seam and the platform compliance notes.
+// Kept as one block on purpose; other Phase 11 work lands elsewhere in this file.
+// ═══════════════════════════════════════════════════════════════════════════════
+export * from './compliance/index.ts';

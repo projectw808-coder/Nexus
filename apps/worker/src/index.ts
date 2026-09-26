@@ -13,6 +13,7 @@ import { pendingIndexBuilds, runtime } from '@nexus/db';
 import { Queue, Worker, type Job } from 'bullmq';
 import { startAiHost } from './ai.ts';
 import { startAutomationHost } from './automation.ts';
+import { COMPLIANCE_JOB_NAMES, handleComplianceJob, scheduleComplianceJobs } from './compliance.ts';
 import { startHealthServer } from './health.ts';
 import { handleSystemJob, type SystemJobData } from './processors/system.ts';
 import { createRedis } from './redis.ts';
@@ -50,7 +51,9 @@ const systemWorker = new Worker<SystemJobData>(
   traced(QUEUES.system, (job) =>
     SYNC_JOB_NAMES.has(job.name)
       ? handleSyncSystemJob(syncHost, job.name, withLogContext(log, { jobId: job.id }))
-      : handleSystemJob(job, withLogContext(log, { jobId: job.id })),
+      : COMPLIANCE_JOB_NAMES.has(job.name)
+        ? handleComplianceJob(job.name, job.data, withLogContext(log, { jobId: job.id }))
+        : handleSystemJob(job, withLogContext(log, { jobId: job.id })),
   ),
   { connection, prefix: QUEUE_PREFIX, concurrency: 5 },
 );
@@ -75,6 +78,8 @@ void (async () => {
       { every: 60 * 60 * 1000 },
       { name: 'attribute.purge', data: {} },
     );
+    // Phase 11 (§5.5): the daily retention purge and the platform compliance notes.
+    await scheduleComplianceJobs(systemQueue, log);
     for (const attributeId of await pendingIndexBuilds(runtime)) {
       await systemQueue.add(
         'index.build',

@@ -2,6 +2,8 @@ import { router, userProcedure } from '../trpc';
 import { aiRouter } from './ai';
 import { auditRouter } from './audit';
 import { cannedReplyRouter } from './canned-replies';
+import { complianceNoteRouter, dataSubjectRequestRouter } from './compliance';
+import { consentRouter } from './consent';
 import { connectionGrantRouter } from './connection-grants';
 import { connectionRouter } from './connections';
 import { conversationRouter } from './conversations';
@@ -66,6 +68,10 @@ export const appRouter = router({
   // Phase 10 — automation + AI
   workflow: workflowRouter,
   ai: aiRouter,
+  // Phase 11 — the compliance layer (§5.5, ADR-022)
+  consent: consentRouter,
+  dataSubjectRequest: dataSubjectRequestRouter,
+  complianceNote: complianceNoteRouter,
 });
 
 export type AppRouter = typeof appRouter;
