@@ -9,12 +9,6 @@ import { signIn } from './helpers';
  */
 test.describe('identity resolution & the unified timeline', () => {
   test('five chips, ordered timeline, explainable merge → unmerge', async ({ page }) => {
-    // Skipped on CI only: the "J. Rivera" merge suggestion never appears on GitHub's runner
-    // (30s+ wait, element genuinely absent) despite passing locally under every condition tried
-    // — isolated, fresh reseed, full-suite order, fresh production build. Not reproduced; not a
-    // timing issue (doubling the timeout changed nothing). Skipped so the job can finish inside
-    // its time budget rather than burn ~3 min on a guaranteed-failing retry; left enabled locally.
-    test.skip(Boolean(process.env['CI']), 'CI-only failure under investigation, see git history');
     await signIn(page, 'alice@e2e.test', '/w/e2e/duplicates');
 
     // The queue explains itself: a pending suggestion with a "why" panel.
