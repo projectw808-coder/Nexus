@@ -13,10 +13,14 @@ import { toCsv } from '@nexus/core';
 import { TRPCError } from '@trpc/server';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
+  createConnectionGrant,
+  createFieldMapping,
   linkIdentity,
   mergeRecords,
   recordDeadLetter,
   recordIntegrationError,
+  recordWebhookEvent,
+  setFieldMappingRules,
   upsertConnection,
   upsertIdentity,
 } from '@nexus/db';
@@ -68,6 +72,10 @@ type Ids = {
   deal2Id: string;
   // Phase 7
   cannedReplyId: string;
+  // Phase 9
+  webhookEventId: string;
+  connectionGrantId: string;
+  fieldMappingId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -466,6 +474,19 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.deadLetterId }),
     crossInput: (ids) => ({ id: ids.deadLetterId }),
   },
+  'connection.dailyActivity': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionId }),
+    crossInput: (ids) => ({ id: ids.connectionId }),
+  },
+  'connection.simulateQuota': {
+    tier: 'tenant',
+    input: () => ({
+      platform: 'MOCK',
+      resources: [{ id: 'mock.posts' }],
+      volume: { 'mock.posts': { itemsPerDay: 100 } },
+    }),
+  },
   // Phase 5 — conversations
   'conversation.list': { tier: 'tenant', input: () => undefined },
   'conversation.get': {
@@ -635,6 +656,96 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.cannedReplyId }),
     crossInput: (ids) => ({ id: ids.cannedReplyId }),
   },
+  // Phase 9 — the integrations hub & health console
+  'connectionGrant.list': {
+    tier: 'tenant',
+    input: (ids) => ({ connectionId: ids.connectionId }),
+    crossInput: (ids) => ({ connectionId: ids.connectionId }),
+  },
+  'connectionGrant.create': {
+    tier: 'tenant',
+    input: (ids) => ({
+      connectionId: ids.connectionId,
+      subjectType: 'ROLE',
+      subjectId: 'MEMBER',
+      permission: 'ENGAGE',
+    }),
+    crossInput: (ids) => ({
+      connectionId: ids.connectionId,
+      subjectType: 'ROLE',
+      subjectId: 'MEMBER',
+      permission: 'PUBLISH',
+    }),
+  },
+  'connectionGrant.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.connectionGrantId }),
+    crossInput: (ids) => ({ id: ids.connectionGrantId }),
+  },
+  'webhookEvent.list': {
+    tier: 'tenant',
+    input: (ids) => ({ connectionId: ids.connectionId }),
+    crossInput: (ids) => ({ connectionId: ids.connectionId }),
+  },
+  'webhookEvent.replay': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.webhookEventId }),
+    crossInput: (ids) => ({ id: ids.webhookEventId }),
+  },
+  'fieldMapping.list': { tier: 'tenant', input: () => undefined },
+  'fieldMapping.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.fieldMappingId }),
+    crossInput: (ids) => ({ id: ids.fieldMappingId }),
+  },
+  'fieldMapping.create': {
+    tier: 'tenant',
+    input: () => ({ platform: 'MOCK', name: `Mapping ${Date.now()}` }),
+  },
+  'fieldMapping.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.fieldMappingId, name: `Renamed ${Date.now()}` }),
+    crossInput: (ids) => ({ id: ids.fieldMappingId, name: 'Pwned' }),
+  },
+  'fieldMapping.setRules': {
+    tier: 'tenant',
+    input: (ids) => ({
+      fieldMappingId: ids.fieldMappingId,
+      rules: [
+        { sourceKind: 'message', sourcePath: 'body', attributeId: ids.attributeId, position: 0 },
+      ],
+    }),
+    crossInput: (ids) => ({
+      fieldMappingId: ids.fieldMappingId,
+      rules: [
+        { sourceKind: 'message', sourcePath: 'text', attributeId: ids.attributeId, position: 0 },
+      ],
+    }),
+  },
+  'fieldMapping.assign': {
+    tier: 'tenant',
+    input: (ids) => ({ connectionId: ids.connectionId, fieldMappingId: ids.fieldMappingId }),
+    crossInput: (ids) => ({ connectionId: ids.connectionId, fieldMappingId: ids.fieldMappingId }),
+  },
+  'fieldMapping.preview': {
+    tier: 'tenant',
+    input: (ids) => ({
+      connectionId: ids.connectionId,
+      kind: 'mock_comment',
+      rules: [{ sourceKind: 'message', sourcePath: 'body', attributeId: ids.attributeId }],
+    }),
+    crossInput: (ids) => ({
+      connectionId: ids.connectionId,
+      kind: 'mock_comment',
+      rules: [{ sourceKind: 'message', sourcePath: 'body', attributeId: ids.attributeId }],
+    }),
+  },
+  'fieldMapping.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.fieldMappingId }),
+    crossInput: (ids) => ({ id: ids.fieldMappingId }),
+  },
+  'health.summary': { tier: 'tenant', input: () => undefined },
   'connection.disconnect': {
     tier: 'tenant',
     input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
@@ -789,7 +900,43 @@ async function freshIds(): Promise<Ids> {
           replyWindowExpiresAt: new Date(Date.now() + 86_400_000),
         },
       });
-      return { id: c.id, errorId: err.id, deadLetterId: dl.id, conversationId: conversation.id };
+      const webhookEvent = await recordWebhookEvent(db, {
+        workspaceId: seed.acme.id,
+        connectionId: c.id,
+        platform: 'MOCK',
+        headers: { 'content-type': 'application/json' },
+        body: { seed: true },
+        verified: true,
+      });
+      const grant = await createConnectionGrant(db, seed.acme.id, {
+        connectionId: c.id,
+        subjectType: 'USER',
+        subjectId: seed.users.carol.id,
+        permission: 'READ',
+      });
+      const fieldMapping = await createFieldMapping(
+        db,
+        seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+        {
+          platform: 'MOCK',
+          name: `Seed mapping ${Date.now()}`,
+        },
+      );
+      await setFieldMappingRules(
+        db,
+        seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+        fieldMapping.id,
+        [{ sourceKind: 'message', sourcePath: 'body', attributeId: attr.id, position: 0 }],
+      );
+      return {
+        id: c.id,
+        errorId: err.id,
+        deadLetterId: dl.id,
+        conversationId: conversation.id,
+        webhookEventId: webhookEvent.id,
+        connectionGrantId: grant.id,
+        fieldMappingId: fieldMapping.id,
+      };
     },
   );
   // Phase 6 rows: a linked identity, an unresolved one with a pending suggestion, a merge to undo.
@@ -868,6 +1015,9 @@ async function freshIds(): Promise<Ids> {
     integrationErrorId: conn.errorId,
     deadLetterId: conn.deadLetterId,
     conversationId: conn.conversationId,
+    webhookEventId: conn.webhookEventId,
+    connectionGrantId: conn.connectionGrantId,
+    fieldMappingId: conn.fieldMappingId,
     spareRecordId: spare.id,
     noteId: note.id,
     taskId: task.id,
