@@ -85,6 +85,9 @@ type Ids = {
   dsrId: string;
   outboundWebhookSubscriptionId: string;
   outboundWebhookDeliveryId: string;
+  // Phase 11 — Reports
+  dashboardId: string;
+  dashboardWidgetId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -946,7 +949,73 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
     crossInput: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
   },
+
+  // ── Phase 11: Reports (§12.2.E) ─────────────────────────────────────────────
+  'dashboard.list': { tier: 'tenant', input: () => undefined },
+  'dashboard.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dashboardId }),
+    crossInput: (ids) => ({ id: ids.dashboardId }),
+  },
+  'dashboard.create': { tier: 'tenant', input: () => ({ name: `Board ${Date.now()}` }) },
+  'dashboard.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dashboardId, name: 'Renamed board' }),
+    crossInput: (ids) => ({ id: ids.dashboardId, name: 'Pwned' }),
+  },
+  'dashboard.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dashboardId }),
+    crossInput: (ids) => ({ id: ids.dashboardId }),
+  },
+  'widget.create': {
+    tier: 'tenant',
+    input: (ids) => ({
+      dashboardId: ids.dashboardId,
+      kind: 'STAT_TILE',
+      title: 'Messages today',
+      query: SEED_WIDGET_QUERY,
+    }),
+    crossInput: (ids) => ({
+      dashboardId: ids.dashboardId,
+      kind: 'STAT_TILE',
+      title: 'Pwned',
+      query: SEED_WIDGET_QUERY,
+    }),
+  },
+  'widget.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dashboardWidgetId, title: 'Renamed tile' }),
+    crossInput: (ids) => ({ id: ids.dashboardWidgetId, title: 'Pwned' }),
+  },
+  'widget.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dashboardWidgetId }),
+    crossInput: (ids) => ({ id: ids.dashboardWidgetId }),
+  },
+  'widget.reorder': {
+    tier: 'tenant',
+    input: (ids) => ({ dashboardId: ids.dashboardId, orderedIds: [ids.dashboardWidgetId] }),
+    // Globex sees no widgets on that id at all, so the order does not describe its dashboard.
+    crossInput: (ids) => ({ dashboardId: ids.dashboardId, orderedIds: [ids.dashboardWidgetId] }),
+    crossExpect: 'BAD_REQUEST',
+  },
+  'widget.data': {
+    tier: 'tenant',
+    input: (ids) => ({ widgetId: ids.dashboardWidgetId }),
+    crossInput: (ids) => ({ widgetId: ids.dashboardWidgetId }),
+  },
 };
+
+/** A query every seeded workspace can execute: a bare timeline count over the last week. */
+const SEED_WIDGET_QUERY = {
+  source: 'timeline_count',
+  types: ['MESSAGE'],
+  platforms: [],
+  groupBy: 'none',
+  byDay: false,
+  days: 7,
+} as const;
 
 let seed: Seed;
 let widgetTypeId: string;
@@ -1263,6 +1332,14 @@ async function freshIds(): Promise<Ids> {
         select: { id: true },
       }),
   );
+  // Phase 11: a dashboard with one widget, through the real router.
+  const dashboard = await owner.dashboard.create({ name: `Seed dashboard ${Date.now()}` });
+  const dashboardWidget = await owner.widget.create({
+    dashboardId: dashboard.id,
+    kind: 'STAT_TILE',
+    title: 'Seed tile',
+    query: SEED_WIDGET_QUERY,
+  });
   return {
     cannedReplyId: canned.id,
     workflowId: workflow.id,
@@ -1271,6 +1348,8 @@ async function freshIds(): Promise<Ids> {
     dsrId: dsr.id,
     outboundWebhookSubscriptionId: hook.subscription.id,
     outboundWebhookDeliveryId: hookDelivery.id,
+    dashboardId: dashboard.id,
+    dashboardWidgetId: dashboardWidget.id,
     ...p6,
     person2Id: person2.id,
     company2Id: company2.id,

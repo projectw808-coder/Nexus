@@ -51,6 +51,9 @@ export type SubjectName =
   | 'DataSubjectRequest'
   // Phase 11 — customer-facing outbound webhooks (§11.2); secret-bearing, so owner/admin only.
   | 'OutboundWebhook'
+  // Phase 11 — Reports (§12.2.E). One subject covers a dashboard and its widgets: a widget has
+  // no meaning apart from the dashboard it sits on.
+  | 'Dashboard'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -100,6 +103,9 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       can(['create', 'update'], 'ConsentRecord');
       cannot(['create', 'update', 'delete'], 'DataSubjectRequest');
       cannot('read', ['ApiKey', 'ConnectionGrant', 'OutboundWebhook']);
+      // Phase 11 — a dashboard is a shared read of the whole workspace, so the tier that
+      // manages lists and workflows manages dashboards and their widgets too.
+      can(['create', 'update', 'delete'], 'Dashboard');
       break;
     case 'MEMBER':
       can('read', [
@@ -121,6 +127,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'CannedReply',
         'Workflow',
         'AiInsight',
+        'Dashboard',
       ]);
       can(['create', 'update'], ['Record', 'Conversation', 'ListEntry', 'Note', 'Task']);
       can('delete', 'Task');
@@ -152,6 +159,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'CannedReply',
         'Workflow',
         'AiInsight',
+        'Dashboard',
       ]);
       break;
   }

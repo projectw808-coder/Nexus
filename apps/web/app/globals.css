@@ -55,3 +55,35 @@ body {
 .tnum {
   font-variant-numeric: tabular-nums;
 }
+
+/* ── Phase 11: charts (§12.4) ──────────────────────────────────────────────
+   An interpolated ramp (funnel, heatmap) cannot be a CSS variable, so a mark ships both steps:
+   `fill` is the light one and `--ramp-dark` the dark one. Dark mode is therefore a *selected*
+   palette, not an automatic inversion, and it follows the same guarded pattern as the tokens:
+   the OS preference unless an explicit toggle overrides it, and the explicit toggle either way.
+   Categorical marks need none of this — they use `var(--series-N)`, which tokens.css already
+   redefines per mode.
+
+   `!important` is load-bearing here, not laziness: the light step is an *inline* `fill`, which
+   otherwise beats any stylesheet rule, so without it dark mode would silently keep the light
+   ramp. `.chart-ramp` is only ever set by these components. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .chart-ramp {
+    fill: var(--ramp-dark) !important;
+  }
+}
+:root[data-theme='dark'] .chart-ramp {
+  fill: var(--ramp-dark) !important;
+}
+
+/* Forced colours and print lose fills entirely, so fall back to the hatch the "Patterns" toggle
+   uses. The toggle stays the reliable path — this is the belt to its braces. */
+@media (forced-colors: active) {
+  [data-chart-card] svg path,
+  [data-chart-card] svg circle {
+    forced-color-adjust: none;
+  }
+  [data-chart-card] [data-chart-cell] {
+    border: 1px solid CanvasText;
+  }
+}

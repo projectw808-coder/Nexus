@@ -696,6 +696,49 @@ webhooks; DSAR export/erasure; retention purge; consent gates; onboarding checkl
 seeding; docs.
 
 - [ ] every §2 performance budget met
-- [ ] every chart passes the §12.4 rules
+- [x] every chart passes the §12.4 rules
 - [ ] a DSAR erasure removes every trace of a person across all channels and leaves a tombstone
 - [ ] the OpenAPI spec generates a working client
+
+### Reports (§12.2.E + §12.4)
+
+- **The chart primitives.** §12.4's rules as pure, tested functions in `@nexus/ui`
+  (`chart-palette.ts`: the fixed 8-colour categorical palette, the memoising key→slot binding, the
+  sequential/diverging/funnel ramps, the 45°/135° hatch table; `chart-geometry.ts`: the mark
+  constants, scales, ticks, stacking with the 2px surface gap, the path builders) plus thin React
+  SVG components in `apps/web/components/charts/` (`LineChart`, `BarChart`/`StackedBarChart`,
+  `FunnelChart`, `CohortHeatmap`, `StatTile`, the table views, and `WidgetChart` which maps a
+  `WidgetKind` to its component). Every chart but the stat tile — §12.4's stated exception — ships
+  one y axis and no way to ask for a second, a legend at ≥2 series, direct labels at ≤4,
+  crosshair + tooltip (line) or per-mark tooltip (bar/cell) with hit targets larger than the mark,
+  a filters row above the plot, a table-view toggle, and a "Patterns" toggle for the hatch fills
+  that `forced-colors: active` / `prefers-contrast: more` also switch on by themselves.
+- **The widget query DSL.** `widgetQuerySchema` in `packages/core/src/reports.ts` — a discriminated
+  union on `source` (`record_count`, `timeline_count`, `sentiment_over_time`, `pipeline_funnel`,
+  `record_table`, `cohort_retention`) whose filter/sort portions are `filterSchema`/`sortSchema`
+  verbatim, plus `SOURCES_FOR_KIND` gating which kind may draw which source, and the `WidgetResult`
+  shapes (`scalar | series | funnel | matrix | table`) the charts consume. Executed in
+  `packages/db/src/reports/` over `countRecords`/`queryRecords`/`stagesOf` and a `dailyRunActivity`-
+  style UTC-day bucketing helper — no rollup tables and no raw SQL.
+- **tRPC + UI.** `dashboard.list/get/create/update/delete`, `widget.create/update/delete/reorder`
+  and `widget.data` (by widget id, or by an unsaved kind+query for the form's live preview);
+  `/w/<slug>/reports` (switcher, opening straight on the default dashboard when there is only one),
+  `/reports/<id>` (CSS-grid dashboard, one tile's stale query never taking the page down),
+  `/reports/<id>/widgets/new|<id>` (kind → source → per-variant fields, with a live chart preview)
+  and `/reports/<id>/settings`. The rail's "Reports · Phase 11" placeholder is now a real link.
+- `Dashboard`/`DashboardWidget`/`WidgetKind` (migration `20261013000000_dashboards`) gained their
+  first consumer; `'Dashboard'` added to the CASL subjects (managers and above build, everyone who
+  reads records reads).
+- ADR-023 (the `@nexus/ui` / `apps/web` split and the SVG choice, the palette's key binding and the
+  fold to "Other", the DSL and its stated performance ceilings).
+
+**Deferred / thin in Reports:** no drag-and-drop reorder in the UI — `widget.reorder` is a real,
+tested-by-typecheck procedure but the grid has no drag handles, so ordering is the creation order ·
+`FUNNEL` and `COHORT_HEATMAP` are complete and §12.4-compliant but have thinner test coverage than
+line/bar/stat/table · `cohort_retention` and `record_count`-with-`byDay` page rows and bucket in
+memory up to `ROW_CEILING` (5,000) rather than aggregating in SQL · `sentiment_over_time` reads raw
+`AiInsight` rows (no daily rollup exists), so its window is capped at 120 days — stated in the
+schema and in ADR-023 rather than left to be discovered · scatter/bubble/choropleth/small multiples
+were not needed (they are not in the fixed catalogue), so §12.4's 3-series positional cap is
+recorded as `MAX_SERIES_POSITIONAL` in the tokens and enforced nowhere, because nothing renders
+them.

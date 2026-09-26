@@ -52,3 +52,6 @@ export type { CsvTable } from './csv.ts';
 
 // ── Phase 6: identity resolution (§10) ───────────────────────────────────────
 export * from './identity/index.ts';
+
+// ── Phase 11: the Reports widget query DSL (§12.2.E) ─────────────────────────
+export * from './reports.ts';

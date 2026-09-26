@@ -85,3 +85,8 @@ export const canManageDsr = canManage;
 
 /** Owners, admins and managers record a consent grant or withdrawal. */
 export const canRecordConsent = canDeleteRecords;
+
+// ── Phase 11: Reports (mirrors server/abilities.ts) ──────────────────────────
+
+/** Owners, admins and managers build dashboards; everyone else reads them. */
+export const canManageDashboards = canDeleteRecords;

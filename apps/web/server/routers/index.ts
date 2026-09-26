@@ -22,6 +22,8 @@ import { noteRouter } from './notes';
 import { outboundWebhookRouter } from './outbound-webhooks';
 import { attributeRouter, objectTypeRouter } from './objects';
 import { companyRouter, dealRouter, personRouter, recordRouter } from './records';
+// Phase 11 — Reports (§12.2.E). One clearly separated block; this file is hand-merged.
+import { dashboardRouter, widgetRouter } from './reports';
 import { searchRouter } from './search';
 import { taskRouter } from './tasks';
 import { viewRouter } from './views';
@@ -78,6 +80,9 @@ export const appRouter = router({
   apiKey: apiKeyRouter,
   // Phase 11 — customer-facing outbound webhooks (§11.2)
   outboundWebhook: outboundWebhookRouter,
+  // Phase 11 — Reports
+  dashboard: dashboardRouter,
+  widget: widgetRouter,
 });
 
 export type AppRouter = typeof appRouter;

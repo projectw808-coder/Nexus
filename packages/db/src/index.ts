@@ -209,3 +209,6 @@ export type { IdempotencyRef, StoredResponse } from './api/idempotency.ts';
 
 // ── Phase 11: customer-facing outbound webhooks (§11.2, ADR-022 decision 4) ──
 export * from './webhooks/index.ts';
+
+// ── Phase 11: Reports — executing a WidgetQuery (§12.2.E) ───────────────────
+export * from './reports/index.ts';
