@@ -1,7 +1,26 @@
 /**
- * Seed stub. The real seed (system object types, protected attributes,
- * demo workspace, mock connection) is Appendix B of the spec and lands in
- * Phase 2+. Until then this only proves the seed hook is wired.
+ * `pnpm --filter @nexus/db seed` (defaults to --demo) or `pnpm --filter @nexus/db seed -- --empty`.
+ * Appendix B. The real implementation lives in `src/seed/` — this is just the CLI entry Prisma's
+ * `migrations.seed` hook (see prisma.config.ts) and `package.json`'s "seed" script both invoke.
  */
-console.log('seed: Phase 2+');
-process.exit(0);
+import { seedDemo, seedEmpty } from '../src/seed/index.ts';
+
+async function main() {
+  const empty = process.argv.includes('--empty');
+  if (empty) {
+    const { acmeId, globexId } = await seedEmpty();
+    console.log(
+      `seed --empty: workspaces ${acmeId} (acme-demo), ${globexId} (globex-demo); no content.`,
+    );
+    return;
+  }
+  await seedDemo();
+  console.log('seed --demo: acme-demo populated per Appendix B; globex-demo left empty.');
+}
+
+main()
+  .then(() => process.exit(0))
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  });
