@@ -1359,6 +1359,9 @@ model WebhookEvent {
   headers      Json      @default("{}")
   body         Json
   verified     Boolean   @default(false)
+  /// Set only when `verified` is false — the taxonomy's remediation string (§9.2), computed once
+  /// at receive time so the delivery log never has to reclassify a rejection to explain it.
+  remediation  String?
   receivedAt   DateTime  @default(now())
   processedAt  DateTime?
   attempts     Int       @default(0)

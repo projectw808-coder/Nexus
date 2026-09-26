@@ -6,7 +6,8 @@
  * yields exactly one `ExternalObject` and one normalisation.
  */
 import { QUEUES } from '@nexus/config';
-import type { Platform, WebhookRequest } from '@nexus/connector-sdk';
+import { PLATFORM_LABELS, type Platform, type WebhookRequest } from '@nexus/connector-sdk';
+import { NexusError } from '@nexus/core';
 import {
   findConnectionForWebhook,
   markWebhookProcessed,
@@ -22,12 +23,26 @@ import { JOB_NAMES, type IngestRawJob } from './jobs.ts';
 export type ReceiveOutcome =
   | { status: 200; eventId: string; routed: true; jobId: string }
   | { status: 200; eventId: string; routed: false; reason: 'no_connection' | 'ping' }
-  | { status: 401; eventId: string; reason: 'unverified' }
+  | { status: 401; eventId: string; reason: 'unverified'; remediation: string }
   | { status: 404; reason: 'unknown_platform' | 'unroutable' };
 
 function pathConnectionId(req: WebhookRequest): string | undefined {
   const m = /\/webhooks\/[a-z_]+\/([A-Za-z0-9_-]{8,})/i.exec(req.path);
   return m?.[1];
+}
+
+/** Runs the failure taxonomy (§9.2) instead of a bare literal, so a rejection always carries
+ * the same typed `remediation` string every other failure path in the product does. */
+function unverifiedWebhookError(platform: Platform, hadSecretToTry: boolean): NexusError {
+  const label = PLATFORM_LABELS[platform] ?? platform;
+  return new NexusError('VALIDATION', {
+    context: {
+      reason: `${label} webhook signature could not be verified.`,
+      detail: hadSecretToTry
+        ? `Confirm the webhook secret configured for this connection matches what ${label} is signing with, or reconnect ${label} to mint a new one.`
+        : `No webhook secret is on file for this connection yet — reconnect ${label} to mint one.`,
+    },
+  });
 }
 
 function bodyJson(req: WebhookRequest): unknown {
@@ -76,6 +91,7 @@ export async function receiveWebhook(
   const verified = candidates.some((s) => connector.verifyWebhook(req, s));
   const headers = Object.fromEntries(Object.entries(req.headers));
   if (!verified) {
+    const err = unverifiedWebhookError(platform, candidates.length > 0);
     const ev = await recordUnroutedWebhookEvent(deps.runtime, {
       workspaceId: routed?.workspaceId ?? null,
       connectionId: routed?.id ?? null,
@@ -83,13 +99,14 @@ export async function receiveWebhook(
       headers,
       body: bodyJson(req),
       verified: false,
+      remediation: err.remediation,
     });
     deps.logger.warn('rejected unverified webhook', {
       platform,
       eventId: ev.id,
       connectionId: routed?.id ?? null,
     });
-    return { status: 401, eventId: ev.id, reason: 'unverified' };
+    return { status: 401, eventId: ev.id, reason: 'unverified', remediation: err.remediation };
   }
 
   if (!routed) {

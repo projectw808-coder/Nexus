@@ -14,6 +14,8 @@ export type WebhookEventInput = {
   headers: Record<string, string>;
   body: unknown;
   verified: boolean;
+  /** Only meaningful when `verified` is false — the taxonomy's remediation string (§9.2). */
+  remediation?: string | null;
   receivedAt?: Date;
 };
 
@@ -45,6 +47,7 @@ function toCreateData(input: WebhookEventInput) {
     headers: safeHeaders(input.headers),
     body: (input.body ?? null) as Prisma.InputJsonValue,
     verified: input.verified,
+    remediation: input.remediation ?? null,
     receivedAt: input.receivedAt ?? new Date(),
   };
 }
@@ -98,4 +101,50 @@ export async function unprocessedWebhookEvents(
     take: limit,
     select: { id: true },
   });
+}
+
+/** The delivery log (§12.2.C): every inbound payload for one connection, newest first. */
+export async function listWebhookEvents(
+  db: TenantDb,
+  input: { connectionId: string; verified?: boolean; limit?: number },
+) {
+  return db.webhookEvent.findMany({
+    where: {
+      connectionId: input.connectionId,
+      ...(input.verified !== undefined ? { verified: input.verified } : {}),
+    },
+    orderBy: { receivedAt: 'desc' },
+    take: input.limit ?? 50,
+  });
+}
+
+export async function getWebhookEvent(db: TenantDb, id: string) {
+  return db.webhookEvent.findFirst({ where: { id } });
+}
+
+/** Workspace-wide delivery health (the health console, §12.2.C): counts and lag over a window. */
+export async function webhookHealthSummary(
+  db: TenantDb,
+  input: { since: Date },
+): Promise<{
+  total: number;
+  rejected: number;
+  unprocessed: number;
+  avgLagMs: number | null;
+  maxLagMs: number | null;
+}> {
+  const rows = await db.webhookEvent.findMany({
+    where: { receivedAt: { gte: input.since } },
+    select: { verified: true, receivedAt: true, processedAt: true },
+  });
+  const lags = rows
+    .filter((r) => r.processedAt)
+    .map((r) => r.processedAt!.getTime() - r.receivedAt.getTime());
+  return {
+    total: rows.length,
+    rejected: rows.filter((r) => !r.verified).length,
+    unprocessed: rows.filter((r) => r.verified && !r.processedAt).length,
+    avgLagMs: lags.length ? Math.round(lags.reduce((s, n) => s + n, 0) / lags.length) : null,
+    maxLagMs: lags.length ? Math.max(...lags) : null,
+  };
 }
