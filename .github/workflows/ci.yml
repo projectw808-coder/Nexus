@@ -92,15 +92,51 @@ jobs:
 
       - name: Install Playwright Chromium
         run: pnpm --filter @nexus/web exec playwright install --with-deps chromium
-      - name: Playwright e2e (records grid at 100k rows, keyboard-only flows, axe on every route)
-        # Runs the production build against its own PGlite database (ADR-012); no services needed.
-        run: pnpm --filter @nexus/web e2e
+      # One playwright invocation per spec file instead of one `pnpm e2e` call for all 7. Each
+      # invocation gets its own next-start + PGlite server process (Playwright's webServer
+      # lifecycle starts/stops per invocation; reuseExistingServer: false in playwright.config.ts
+      # guarantees a fresh one every time). A single long-lived process serving all 40 tests
+      # sequentially over ~25 minutes was accumulating enough memory/CPU pressure on the runner's
+      # 2 vCPU / 7GB that later, heavier tests (the 100k-row grid, keyboard, real-time inbox,
+      # multi-tab a11y scans) started failing near the end of the run — one process per file
+      # bounds how much any single process has to survive. Playwright's own `--shard` was tried
+      # first and rejected: with workers:1 it balances by file, not test count (one shard got 0
+      # tests, another got all 28 of a11y.spec.ts), which is both uneven and — worse — risks
+      # splitting settings-integrations.a11y.spec.ts from inbox.spec.ts across shards; that file's
+      # own header comment requires it run strictly after inbox.spec.ts (ensureMockConnected()
+      # always reconnects, and reconnecting first would re-trigger a backfill that shifts what
+      # inbox.spec.ts's timeline assertions see). These steps preserve that same file order.
+      # e2e/seed.ts's seedE2eWorkspace is idempotent (checks for an existing "e2e" workspace and
+      # returns early), so only the first step actually seeds the 100k widgets; the rest reuse the
+      # same .data/e2e directory. Each step writes to its own --output dir so a later step's run
+      # doesn't clear an earlier step's failure artifacts (Playwright wipes its output dir at the
+      # start of every invocation).
+      - name: Playwright e2e — a11y.spec.ts
+        run: pnpm --filter @nexus/web exec playwright test e2e/a11y.spec.ts --output=test-results-a11y
+      - name: Playwright e2e — automations.spec.ts
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/automations.spec.ts --output=test-results-automations
+      - name: Playwright e2e — identity.spec.ts
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/identity.spec.ts --output=test-results-identity
+      - name: Playwright e2e — inbox.spec.ts
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/inbox.spec.ts --output=test-results-inbox
+      - name: Playwright e2e — keyboard.spec.ts
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/keyboard.spec.ts --output=test-results-keyboard
+      - name: Playwright e2e — records-table.spec.ts (100k-row grid)
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/records-table.spec.ts --output=test-results-records-table
+      - name: Playwright e2e — settings-integrations.a11y.spec.ts
+        if: ${{ !cancelled() }}
+        run: pnpm --filter @nexus/web exec playwright test e2e/settings-integrations.a11y.spec.ts --output=test-results-settings-integrations
       - name: Upload Playwright traces
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
-          path: apps/web/test-results
+          path: apps/web/test-results-*
           retention-days: 7
 
       - name: Lighthouse CI budgets (§2 — 50-record list LCP < 2.0s, TTFB < 300ms)
