@@ -74,7 +74,15 @@ test.describe('unified inbox', () => {
     const timeline = page.getByTestId('timeline');
     await expect(timeline).toContainText(reply);
     await expect(timeline).toContainText('replied');
-    await expect(timeline.getByTestId('timeline-entry').first()).toContainText('via Mock');
+    // Not `.first()`: when this commenter needed `create-person` above, that link action is
+    // itself a timeline entry timestamped after the reply, so it — not the comment — sorts
+    // first. Assert provenance on the reply entry itself (already confirmed present above)
+    // rather than assuming position or that the inbound comment's exact text lands on this
+    // identity's timeline (the mock platform can reuse a commenter id already used by
+    // unrelated backfilled history).
+    await expect(
+      timeline.getByTestId('timeline-entry').filter({ hasText: reply }).first(),
+    ).toContainText('via Mock');
   });
 
   test('two users see each other’s assignment changes live', async ({ browser }) => {
