@@ -78,8 +78,13 @@ function itemsFor(slug: string): RailItem[] {
     { kind: 'link', label: 'Lists', href: `${base}/lists`, icon: Icon.lists },
     { kind: 'link', label: 'Duplicates', href: `${base}/duplicates`, icon: Icon.duplicates },
     { kind: 'planned', label: 'Reports', phase: 11, icon: Icon.reports },
-    { kind: 'planned', label: 'Automations', phase: 10, icon: Icon.automations },
-    { kind: 'planned', label: 'Integrations', phase: 9, icon: Icon.integrations },
+    { kind: 'link', label: 'Automations', href: `${base}/automations`, icon: Icon.automations },
+    {
+      kind: 'link',
+      label: 'Integrations',
+      href: `${base}/settings/integrations`,
+      icon: Icon.integrations,
+    },
     { kind: 'link', label: 'Settings', href: `${base}/settings`, icon: Icon.settings },
   ];
 }

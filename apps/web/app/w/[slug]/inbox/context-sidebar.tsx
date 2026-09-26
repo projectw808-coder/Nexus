@@ -16,6 +16,14 @@ import { identityLabel, platformName, TIMELINE_TYPE_LABEL } from '@/lib/platform
 import { useTRPC } from '@/lib/trpc-client';
 import { memberName, snoozePresets, type Member } from './inbox-shared';
 
+type RelationshipBriefContent = {
+  kind: 'relationship_brief';
+  summary: string;
+  caresAbout: string[];
+  openThreads: string[];
+  riskFlags: string[];
+};
+
 export function ContextSidebar({
   slug,
   conversationId,
@@ -35,6 +43,20 @@ export function ContextSidebar({
   const qc = useQueryClient();
   const ctx = useQuery(trpc.conversation.context.queryOptions({ id: conversationId }));
   const lists = useQuery({ ...trpc.list.list.queryOptions(), enabled: canWriteRecords });
+  const personId = ctx.data?.person?.id;
+  const insights = useQuery({
+    ...trpc.ai.insights.list.queryOptions({ recordId: personId ?? '' }),
+    enabled: !!personId,
+  });
+  const leadScore = useQuery({
+    ...trpc.ai.scoreLead.queryOptions({ recordId: personId ?? '' }),
+    enabled: !!personId,
+  });
+  const generateBrief = useMutation(
+    trpc.ai.generateRelationshipBrief.mutationOptions({
+      onSuccess: () => qc.invalidateQueries({ queryKey: trpc.ai.pathKey() }),
+    }),
+  );
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: trpc.conversation.pathKey() });
     void qc.invalidateQueries({ queryKey: trpc.identity.pathKey() });
@@ -187,6 +209,87 @@ export function ContextSidebar({
           </Link>
         ) : null}
       </section>
+
+      {c.person ? (
+        <section className="flex flex-col gap-1.5" aria-label="AI relationship brief">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[var(--text-xs)] font-semibold uppercase tracking-wide text-ink-muted">
+              AI relationship brief
+            </h3>
+            {canWriteRecords ? (
+              <button
+                type="button"
+                onClick={() => generateBrief.mutate({ recordId: c.person!.id })}
+                disabled={generateBrief.isPending}
+                className="text-[var(--text-xs)] text-link underline-offset-2 hover:underline disabled:opacity-50"
+              >
+                {generateBrief.isPending
+                  ? 'Generating…'
+                  : insights.data?.length
+                    ? 'Regenerate'
+                    : 'Generate'}
+              </button>
+            ) : null}
+          </div>
+          {(() => {
+            const brief = insights.data?.find(
+              (i) => (i.content as { kind?: string } | null)?.kind === 'relationship_brief',
+            );
+            if (generateBrief.error)
+              return (
+                <p role="alert" className="text-[var(--text-xs)] text-critical">
+                  {generateBrief.error.message}
+                </p>
+              );
+            if (!brief)
+              return (
+                <p className="text-[var(--text-xs)] text-ink-muted">
+                  No brief yet — generate one from this person&apos;s history across every channel.
+                </p>
+              );
+            const content = brief.content as RelationshipBriefContent;
+            return (
+              <div className="flex flex-col gap-1.5 text-[var(--text-xs)]">
+                <p>{content.summary}</p>
+                {content.caresAbout.length ? (
+                  <p className="text-ink-secondary">Cares about: {content.caresAbout.join(', ')}</p>
+                ) : null}
+                {content.openThreads.length ? (
+                  <p className="text-ink-secondary">
+                    Open threads: {content.openThreads.join('; ')}
+                  </p>
+                ) : null}
+                {content.riskFlags.length ? (
+                  <p className="text-critical">Risk: {content.riskFlags.join('; ')}</p>
+                ) : null}
+                <p className="text-ink-muted">
+                  {Array.isArray(brief.citations) ? brief.citations.length : 0} citation
+                  {Array.isArray(brief.citations) && brief.citations.length === 1 ? '' : 's'} from
+                  the timeline.
+                </p>
+              </div>
+            );
+          })()}
+          {leadScore.data ? (
+            <div className="flex flex-col gap-1 border-t border-hairline pt-1.5 text-[var(--text-xs)]">
+              <p className="font-medium">
+                Lead score: <span className="tnum">{leadScore.data.score}</span>/100
+              </p>
+              <ul className="flex flex-col gap-0.5 text-ink-secondary">
+                {leadScore.data.factors.map((f) => (
+                  <li key={f.label} className="flex justify-between gap-2">
+                    <span>{f.label}</span>
+                    <span className="tnum shrink-0">
+                      {f.contribution >= 0 ? '+' : ''}
+                      {f.contribution}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {canTriage ? (
         <section className="flex flex-col gap-1.5" aria-label="Quick actions">

@@ -69,3 +69,11 @@ export const canReviewMerges = canDeleteRecords;
 
 /** Everyone but viewers may link a channel identity to a person (a confirmed, audited link). */
 export const canLinkIdentities = canWriteRecords;
+
+// ── Phase 10: automation + AI (mirrors server/abilities.ts) ──────────────────
+
+/** Owners, admins and managers create/edit/enable/delete workflows — they affect the whole team. */
+export const canManageWorkflows = canDeleteRecords;
+
+/** Everyone but viewers can trigger AI generation and accept/dismiss what comes back. */
+export const canUseAi = canWriteRecords;

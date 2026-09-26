@@ -53,8 +53,11 @@ const STATIC_ROUTES = [
   '/w/e2e/settings/integrations',
   '/w/e2e/settings/canned-replies',
   '/w/e2e/settings/health',
+  '/w/e2e/settings/ai',
   '/w/e2e/inbox',
   '/w/e2e/duplicates',
+  '/w/e2e/automations',
+  '/w/e2e/automations/new',
   '/status',
 ];
 

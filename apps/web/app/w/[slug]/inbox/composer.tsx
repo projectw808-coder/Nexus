@@ -52,6 +52,7 @@ export const Composer = forwardRef<
   const [mentions, setMentions] = useState<Member[]>([]);
   const [mentionQuery, setMentionQuery] = useState<string | null>(null);
   const [showCanned, setShowCanned] = useState(false);
+  const [isAiDraft, setIsAiDraft] = useState(false);
   const [notice, setNotice] = useState<{ tone: 'error' | 'ok'; text: string } | null>(null);
   const [nonce, setNonce] = useState(() => newNonce());
   const replyRef = useRef<HTMLTextAreaElement>(null);
@@ -86,6 +87,16 @@ export const Composer = forwardRef<
         );
         invalidate();
         onSent?.();
+      },
+      onError: (e) => setNotice({ tone: 'error', text: e.message }),
+    }),
+  );
+  const draftReply = useMutation(
+    trpc.ai.draftReply.mutationOptions({
+      onSuccess: (d) => {
+        setText(d.text);
+        setIsAiDraft(true);
+        setTab('reply');
       },
       onError: (e) => setNotice({ tone: 'error', text: e.message }),
     }),
@@ -131,6 +142,9 @@ export const Composer = forwardRef<
     replyRef.current?.focus();
   };
   const onReplyChange = (v: string) => {
+    // A human edit means it's no longer purely an AI draft (§13 "never auto-sends" — the badge
+    // marks unreviewed AI text, not text a human has touched).
+    setIsAiDraft(false);
     // `/shortcut ` expands a canned reply.
     const m = /(^|\s)\/([a-z0-9_-]{1,32})\s$/i.exec(v);
     if (m) {
@@ -221,6 +235,14 @@ export const Composer = forwardRef<
           <label htmlFor={`reply-${t.id}`} className="sr-only">
             Reply
           </label>
+          {isAiDraft ? (
+            <span
+              data-testid="ai-draft-badge"
+              className="inline-flex w-fit items-center gap-1 rounded-[var(--radius-pill)] bg-[var(--status-warning-bg)] px-2 py-0.5 text-[var(--text-xs)] font-medium text-warning"
+            >
+              AI draft — review before sending
+            </span>
+          ) : null}
           <textarea
             ref={replyRef}
             id={`reply-${t.id}`}
@@ -269,6 +291,14 @@ export const Composer = forwardRef<
                   ? `Attachments: ${t.composer.attachmentTypes.join(', ')}`
                   : 'Attachments: text only on this platform for now'}
               </span>
+              <button
+                type="button"
+                onClick={() => draftReply.mutate({ conversationId: t.id })}
+                disabled={draftReply.isPending || blocked}
+                className="text-link underline-offset-2 hover:underline disabled:opacity-50 disabled:no-underline"
+              >
+                {draftReply.isPending ? 'Drafting…' : 'AI draft'}
+              </button>
               {canned.length ? (
                 <span className="relative">
                   <button
