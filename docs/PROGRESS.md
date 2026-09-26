@@ -579,7 +579,7 @@ What was built:
   `packages/db/src/sync/runs.ts`) rather than a new time-series table — `BudgetSnapshot` is a
   live point-in-time read with no history of its own (ADR-020).
 - **Connection detail** (`.../integrations/[connectionId]/{overview,data,mapping,permissions,
-  webhooks,activity,danger}`): Overview (account details, budget meters, capability
+webhooks,activity,danger}`): Overview (account details, budget meters, capability
   degradation, recent `IntegrationError`s); Data & resources (per-resource enable/interval/
   backfill settings); Field mapping (create/select a mapping, edit rules, live
   `previewFieldMapping` against real `ExternalObject.raw` samples — deliberately not wired into
@@ -605,16 +605,89 @@ chain — explicit rule → connector default → `_unmapped` — is previewed b
 ADR-020) · nightly drift reconciliation (§9.1, still no `ConnectionDriftSample` writer) ·
 Keitaro `keitaro.clicks` fetching (carried over from Phase 8, unchanged).
 
-## Phase 10 — Automation + AI
+## Phase 10 — Automation + AI ✅
 
 The workflow engine with dry-run, loop detection and run history; summaries, relationship briefs,
 AI research attributes, reply drafting, transparent lead scoring, hybrid semantic search; budgets
 and kill switches.
 
-- [ ] a workflow that routes Instagram comments containing "price" to a pipeline and assigns by
-      round-robin passes a 7-day dry run and then runs live
-- [ ] an AI summary cites real timeline events
-- [ ] the kill switch stops all model calls within one request
+- [x] a workflow that routes Instagram comments containing "price" to a pipeline and assigns by
+      round-robin passes a 7-day dry run and then runs live — end-to-end in
+      `packages/automation/src/engine.test.ts`: seeds historical `TimelineEvent` rows, a
+      `PIPELINE` list and two agents; `dryRun` reports the right matched count with zero side
+      effects; `reactToEvent` then live-runs the same workflow twice and asserts the `ListEntry`
+      lands and `Conversation.assigneeId` alternates between the two agents
+      (`Workflow.state` holding the round-robin cursor); a redelivered event is a no-op
+      (`WorkflowRun.triggerKey`); a comment without "price" produces zero actions. Also exercised
+      through the UI in `apps/web/e2e/automations.spec.ts` (create → list → dry run).
+- [x] an AI summary cites real timeline events — `packages/ai/src/summary.test.ts` fetches the
+      persisted `AiInsight` back and independently queries every id in `citations`, asserting each
+      is a real `TimelineEvent` in this workspace and this conversation; a hallucinated id and a
+      real-but-wrong-thread id are both proven to be dropped by `filterCitations`.
+- [x] the kill switch stops all model calls within one request — `packages/ai/src/budget.test.ts`
+      plus a dedicated assertion on every feature function: flipping
+      `workspace.settings.ai.killSwitch` makes the very next `checkAiAllowed()` read return
+      `false` with no query, and every feature function calls it before touching the model —
+      `mockAiModel().calls.complete/embed` stay at `0`.
+
+What was built:
+
+- **`@nexus/automation`** (spec §14): a JSON-logic-lite condition tree (`and`/`or`/`not`/`leaf`
+  over dot-paths); 13 trigger types and 15 action types (`update_record`, `create_record`,
+  `create_task`, `create_note`, `list_add`/`list_remove`, `stage_move`, `assign` — user or
+  round-robin — `send_reply`, `send_email`, `call_webhook`, `enqueue_ai`, `wait`, `branch`,
+  `run_workflow`); loop detection via a causation chain carried on the event (own workflow id in
+  the chain, or chain depth > 10, halts `CANCELLED`/`loop_detected` before any action runs); a
+  per-workflow hourly rate cap; a 7-day dry run against real historical data with zero side
+  effects; `WorkflowVersion` snapshot-and-rollback (ADR-021). Depends on `@nexus/core` and
+  `@nexus/db` only — every platform-specific side effect is a callback the caller injects.
+- **`@nexus/ai`** (spec §13): an `AiModel` provider seam (mock for tests, `disabledModel` the
+  `AI_PROVIDER=disabled` default, thin fetch-based Anthropic/OpenAI adapters — no SDK dependency);
+  `generateStructured` (JSON-only prompting, Zod validation, one self-correcting retry); a
+  versioned prompt registry; `redactPii`; `checkAiAllowed` (kill switch, per-feature toggle,
+  monthly `AiUsage`-ledger budget); `summarizeConversation`, `generateRelationshipBrief`,
+  `runResearchAttribute` (writes through a privileged path — `AI_RESEARCH` is otherwise
+  write-blocked by design), `draftReply`, `scoreLead` (pure arithmetic, no model call, itemized
+  breakdown — never a black-box number), `semanticSearch`/`embedAndStore` backed by a new
+  `@nexus/db` hybrid full-text + vector search (`Record.searchVector` ∪ `Embedding` cosine
+  distance, reciprocal-rank fusion), and `bioEmbeddingSimilarity` (see "Deferred").
+- **Stage 6 ("React")**, deferred since Phase 4: `packages/sync/src/react.ts` queries the
+  `TimelineEvent` rows a batch's materialize call just wrote and enqueues one `AutomationEvent`
+  per inbound message/comment/mention/lead-form event onto `QUEUES.automate`. Record
+  creates/updates and list entry-added/stage-changed from `apps/web` construct the same event
+  shape and dispatch through the ADR-010 job dispatcher, generalized to route by queue name.
+  `apps/worker` hosts both new queues and is the one place `@nexus/automation`, `@nexus/ai`,
+  `@nexus/sync` and `@nexus/mail` are wired together (ADR-021): `sendReply` attributes a
+  workflow's reply to the connection's owner (`OutboundAction.requestedByUserId` is `NOT NULL`
+  and a workflow has no user of its own — `requestReply` gained an explicit override for this).
+- **UI**: an Automations list + create/edit form (structured trigger picker, conditions/actions as
+  JSON — the spec's own "visual builder and a raw JSON escape hatch," shipped escape-hatch-first)
+  - dry-run panel + run history + version list with rollback; an AI relationship brief and
+    transparent lead-score breakdown in the inbox context sidebar; an "AI draft" button in the
+    composer with a visible, human-clearable "AI draft — review before sending" badge; a workspace
+    AI settings page (kill switch, monthly budget, PII redaction level).
+- `Identity.bioEmbedding`, `Workflow.state`, `WorkflowVersion`, `WorkflowRun.triggerKey`,
+  `AiUsage` (migration `20261010000000_automation_ai`); `scorePair` (`@nexus/core`) gained the
+  `BIO_EMBEDDING` Tier-3 signal ADR-017 deferred to "when the AI layer exists."
+- ADR-021 (the automation/AI dependency boundary, stage 6, loop detection, the AI provider seam).
+
+**Deferred:** the bio-embedding Tier-3 signal is fully built (the `scorePair` input, the
+`bioEmbeddingSimilarity` primitive, the `Identity.bioEmbedding` column) but not yet called from
+`identity-rescore.ts` — ADR-021 commits to wiring it into the nightly re-score only, never the
+ingest-time resolver, and that wiring is the one piece not done this phase · `sla.breach_imminent`
+and `task.overdue` triggers are defined in the vocabulary and covered by `dryRun`'s "no replayable
+trail" branch, but nothing yet sweeps for them (no scheduled producer) · `webhook.inbound` is a
+real trigger type with no receiving endpoint — Nexus's own inbound webhooks are platform webhooks
+(§11.3), and a _generic_ inbound-webhook-to-workflow endpoint is unbuilt · `ai.insight_produced`
+fires nothing yet — `@nexus/ai` writes `AiInsight` rows but not a `TimelineEvent`, so stage 6 never
+sees it · semantic search has no dedicated UI (the `ai.semanticSearch` procedure exists and is
+tested; global search is not yet wired to call it) · the record page has no "run now" button for an
+`AI_RESEARCH` attribute — `ai.runResearchAttribute` is a complete, tested procedure, but wiring a
+trigger into the shared read-only attribute panel (`value-cell.tsx`, used across the record page,
+data grid and elsewhere) was left alone rather than risk a rushed change to a component that many
+screens depend on · a full drag-and-drop workflow canvas (the spec's "on a canvas") — the JSON
+escape hatch is the primary interface this phase, not a fallback
+behind a visual builder.
 
 ## Phase 11 — Reports, public API, compliance, polish
 
