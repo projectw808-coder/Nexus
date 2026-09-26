@@ -218,6 +218,9 @@ export async function listConnectionsForTokenSweep(runtime: TenantRuntime, befor
         refreshableUntil: true,
         ownerUserId: true,
         label: true,
+        // For the reconnect-required e-mail (Phase 9): who to notify and where to send them.
+        owner: { select: { email: true } },
+        workspace: { select: { name: true, slug: true } },
       },
     }),
   );

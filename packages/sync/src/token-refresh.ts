@@ -3,9 +3,10 @@
  * expiry with no refresh path raises RECONNECT_REQUIRED, notifies the owner and pauses only
  * that connection. Runs hourly from the worker; also callable from the CLI.
  */
-import { tokenLifecycle, type Logger } from '@nexus/connector-sdk';
+import { PLATFORM_LABELS, tokenLifecycle, type Logger, type Platform } from '@nexus/connector-sdk';
 import { NexusError } from '@nexus/core';
 import { listConnectionsForTokenSweep, setConnectionStatus, systemActorFor } from '@nexus/db';
+import { reconnectRequiredEmail, type MailProvider } from '@nexus/mail';
 import { bindConnection } from './context.ts';
 import { nowOf, type SyncDeps } from './deps.ts';
 import { applyFailure } from './failures.ts';
@@ -13,19 +14,65 @@ import { applyFailure } from './failures.ts';
 export type Notifier = {
   reconnectRequired(input: {
     workspaceId: string;
+    workspaceName: string;
+    workspaceSlug: string;
     connectionId: string;
     label: string;
+    platform: Platform;
     ownerUserId: string | null;
+    ownerEmail: string | null;
     expiresAt: Date | null;
     reason: string;
   }): Promise<void>;
 };
 
-/** Default notifier: a structured log line. The web tier supplies the e-mailing one (Phase 9 health console). */
+/** Default notifier: a structured log line. The worker supplies the e-mailing one (Phase 9 health console). */
 export function loggingNotifier(log: Logger): Notifier {
   return {
     async reconnectRequired(input) {
       log.warn('connection requires reconnect', { ...input });
+    },
+  };
+}
+
+/**
+ * Emails the workspace owner that a connection was paused and needs reconnecting. A connection
+ * with no owner, or whose owner has no e-mail on file, is logged and skipped rather than thrown —
+ * one connection's missing owner must never break the sweep for the others.
+ */
+export function mailNotifier(opts: { mail: MailProvider; appUrl: string; log: Logger }): Notifier {
+  return {
+    async reconnectRequired(input) {
+      if (!input.ownerUserId || !input.ownerEmail) {
+        opts.log.warn(
+          'connection requires reconnect but has no owner e-mail on file; skipping notification',
+          {
+            workspaceId: input.workspaceId,
+            connectionId: input.connectionId,
+          },
+        );
+        return;
+      }
+      const reconnectUrl = `${opts.appUrl.replace(/\/+$/, '')}/w/${input.workspaceSlug}/settings/integrations`;
+      const content = reconnectRequiredEmail({
+        workspaceName: input.workspaceName,
+        connectionLabel: input.label,
+        platformName: PLATFORM_LABELS[input.platform],
+        expiresAt: input.expiresAt,
+        reconnectUrl,
+      });
+      const result = await opts.mail.send({
+        to: input.ownerEmail,
+        kind: 'connection.reconnect_required',
+        ...content,
+      });
+      if (!result.ok) {
+        opts.log.warn('failed to send reconnect-required e-mail', {
+          workspaceId: input.workspaceId,
+          connectionId: input.connectionId,
+          error: result.error.message,
+        });
+      }
     },
   };
 }
@@ -95,9 +142,13 @@ export async function sweepTokens(
       );
       await notifier.reconnectRequired({
         workspaceId: c.workspaceId,
+        workspaceName: c.workspace.name,
+        workspaceSlug: c.workspace.slug,
         connectionId: c.id,
         label: c.label,
+        platform: c.platform,
         ownerUserId: c.ownerUserId,
+        ownerEmail: c.owner?.email ?? null,
         expiresAt: life.expiresAt,
         reason,
       });
@@ -123,9 +174,13 @@ export async function sweepTokens(
           result.reconnectRequired += 1;
           await notifier.reconnectRequired({
             workspaceId: c.workspaceId,
+            workspaceName: c.workspace.name,
+            workspaceSlug: c.workspace.slug,
             connectionId: c.id,
             label: c.label,
+            platform: c.platform,
             ownerUserId: c.ownerUserId,
+            ownerEmail: c.owner?.email ?? null,
             expiresAt: c.tokenExpiresAt,
             reason: err.userMessage,
           });

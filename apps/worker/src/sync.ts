@@ -13,10 +13,12 @@ import {
   systemActorFor,
   runtime,
 } from '@nexus/db';
+import { getMailProvider } from '@nexus/mail';
 import {
   createSyncDeps,
   deadLetterJob,
   handleJob,
+  mailNotifier,
   planDeltaPolls,
   requeuePendingNormalization,
   runIdentityRescore,
@@ -240,7 +242,12 @@ export async function handleSyncSystemJob(
       return result;
     }
     case SYNC_SYSTEM_JOBS.tokenSweep: {
-      const result = await sweepTokens(deps);
+      const notifier = mailNotifier({
+        mail: getMailProvider(),
+        appUrl: deps.appUrl ?? loadEnv().APP_URL,
+        log: deps.logger,
+      });
+      const result = await sweepTokens(deps, { notifier });
       log.info(result, 'token sweep finished');
       return result;
     }

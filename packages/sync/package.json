@@ -24,6 +24,7 @@
     "@nexus/connector-youtube": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/db": "workspace:*",
+    "@nexus/mail": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {

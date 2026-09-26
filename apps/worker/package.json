@@ -16,6 +16,7 @@
     "@nexus/connector-sdk": "workspace:*",
     "@nexus/core": "workspace:*",
     "@nexus/db": "workspace:*",
+    "@nexus/mail": "workspace:*",
     "@nexus/sync": "workspace:*",
     "@nexus/telemetry": "workspace:*",
     "@opentelemetry/api": "^1.9.1",

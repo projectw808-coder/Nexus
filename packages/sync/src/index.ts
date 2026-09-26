@@ -55,7 +55,7 @@ export { replayConnection, replayDeadLetter } from './replay.ts';
 export type { ReplayStage } from './replay.ts';
 export { planDeltaPolls, enqueueBackfill, enqueueDelta, resourcesFor } from './scheduler.ts';
 export type { PlannedPoll } from './scheduler.ts';
-export { sweepTokens, loggingNotifier } from './token-refresh.ts';
+export { sweepTokens, loggingNotifier, mailNotifier } from './token-refresh.ts';
 export type { Notifier, SweepResult } from './token-refresh.ts';
 export {
   connectPlatform,
