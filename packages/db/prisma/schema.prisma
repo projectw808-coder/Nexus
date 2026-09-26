@@ -334,6 +334,14 @@ enum DsrStatus {
   REJECTED
 }
 
+/// §5.5 consent tracking. UNKNOWN is the default for a channel nobody has asked about — it must
+/// never be treated as GRANTED by an outbound-send preflight check.
+enum ConsentStatus {
+  UNKNOWN
+  GRANTED
+  WITHDRAWN
+}
+
 // =============================================================================
 // §6.1 Tenancy & people
 // =============================================================================
@@ -398,6 +406,8 @@ model Workspace {
   outboundWebhookSubscriptions OutboundWebhookSubscription[]
   outboundWebhookDeliveries    OutboundWebhookDelivery[]
   dataSubjectRequests          DataSubjectRequest[]
+  consentRecords               ConsentRecord[]
+  apiIdempotencyKeys           ApiIdempotencyKey[]
   workspaceKeys                WorkspaceKey[]
   vaultEntries                 VaultEntry[]
   deadLetters                  DeadLetter[]
@@ -905,6 +915,7 @@ model Identity {
   authoredMessages    Message[]
   timelineEvents      TimelineEvent[]   @relation("TimelineEventIdentity")
   timelineEventsActed TimelineEvent[]   @relation("TimelineEventActorIdentity")
+  consentRecords      ConsentRecord[]
 
   @@unique([workspaceId, platform, externalId])
   @@index([workspaceId, email])
@@ -1974,6 +1985,8 @@ model ApiKey {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
+  idempotencyKeys ApiIdempotencyKey[]
+
   @@index([workspaceId, prefix])
   @@index([workspaceId, revokedAt])
   @@index([createdById])
@@ -2029,6 +2042,51 @@ model OutboundWebhookDelivery {
   @@index([workspaceId, subscriptionId, createdAt(sort: Desc)])
   @@index([workspaceId, status, nextAttemptAt])
   @@index([subscriptionId])
+}
+
+/// §5.5 consent tracking on marketing-capable channels: one row per (identity, channel), so an
+/// outbound-send preflight can check consent per platform/channel rather than per person globally
+/// — Instagram consent and email consent for the same person are tracked and can differ.
+model ConsentRecord {
+  id          String        @id @default(uuid())
+  workspaceId String
+  identityId  String
+  /// The Platform name for a platform DM/comment channel, or "email"/"sms" for others.
+  channel     String
+  status      ConsentStatus @default(UNKNOWN)
+  /// How this was captured or withdrawn, e.g. "lead_form", "unsubscribe_link", "manual".
+  source      String?
+  capturedAt  DateTime      @default(now())
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  identity  Identity  @relation(fields: [identityId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, identityId, channel])
+  @@index([workspaceId, identityId])
+  @@index([workspaceId, channel, status])
+}
+
+/// Public REST v1 (§11.2) idempotency: a POST replayed with the same `Idempotency-Key` returns
+/// the first response verbatim rather than repeating the side effect. `requestHash` catches the
+/// same key reused with a different body, which is a client bug, not a legitimate replay.
+model ApiIdempotencyKey {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  apiKeyId       String?
+  key            String
+  requestHash    String
+  responseStatus Int
+  responseBody   Json
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  apiKey    ApiKey?   @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, key])
+  @@index([workspaceId, createdAt])
+  @@index([apiKeyId])
 }
 
 /// GDPR/CCPA request (§5.5). The DSR job finds every row for the subject
