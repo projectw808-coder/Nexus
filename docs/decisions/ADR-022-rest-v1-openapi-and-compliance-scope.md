@@ -12,10 +12,10 @@ whose charts obey §12.4's binding rules. Three things needed a decision before 
 
 1. **REST v1 is hand-written Next.js route handlers over the existing `@nexus/db`/`@nexus/sync`
    functions, not a tRPC-to-REST bridge.** Every tRPC procedure already resolves its actor from a
-   *session* (`tenantProcedure` needs `ctx.slug` + `ctx.session.id` to call
+   _session_ (`tenantProcedure` needs `ctx.slug` + `ctx.session.id` to call
    `tenancy.resolveActor`). REST v1 authenticates with a workspace API key instead — the key
    itself fixes the workspace, so there is no slug in the URL at all
-   (`GET /v1/objects/:slug/records` — `:slug` there is the *object's* slug, e.g. `widget`, never
+   (`GET /v1/objects/:slug/records` — `:slug` there is the _object's_ slug, e.g. `widget`, never
    the workspace's). Retrofitting a session-shaped middleware to also accept a bearer key is
    more fragile than a second, thin transport that resolves `{workspaceId, actor}` from the key
    and calls the same underlying functions the tRPC routers already call — record CRUD, list
@@ -34,7 +34,7 @@ whose charts obey §12.4's binding rules. Three things needed a decision before 
    said — it is not what GDPR/CAN-SPAM mean by "marketing," and gating it on a `ConsentRecord`
    that will be `UNKNOWN` for the overwhelming majority of identities would make the unified
    inbox unusable. Nexus has no bulk/marketing-campaign feature to gate either. The one place an
-   *unprompted* outbound send genuinely exists is `@nexus/automation`'s `send_reply`/`send_email`
+   _unprompted_ outbound send genuinely exists is `@nexus/automation`'s `send_reply`/`send_email`
    actions (Phase 10) — a workflow firing on its own trigger, not a human answering a specific
    message. `ConsentRecord` (one row per `(identity, channel)`, `UNKNOWN | GRANTED | WITHDRAWN`)
    is checked there: `WITHDRAWN` blocks the step outright; `UNKNOWN` and `GRANTED` both proceed
@@ -48,7 +48,7 @@ whose charts obey §12.4's binding rules. Three things needed a decision before 
    per-`TimelineEvent` loop and the record/list mutation call sites in `apps/web` already turn a
    materialized change into a typed event; right alongside the existing `automate.react` dispatch,
    the same call site now also calls `dispatchOutboundWebhookEvent(db, bus, {workspaceId,
-   eventType, payload})`, which matches `OutboundWebhookSubscription.events` and enqueues one
+eventType, payload})`, which matches `OutboundWebhookSubscription.events` and enqueues one
    signed delivery per matching subscription. This is a second consumer of the same "an event
    happened here" call sites Phase 10 already established, not a new event-detection mechanism.
 

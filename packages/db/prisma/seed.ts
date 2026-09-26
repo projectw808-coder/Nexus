@@ -13,7 +13,9 @@ import { seedDemo, seedEmpty } from '../src/seed/index.ts';
 
 async function main() {
   const notes = await seedPlatformComplianceNotes(runtime);
-  console.log(`seed: platform compliance notes — ${notes.created} created, ${notes.updated} updated`);
+  console.log(
+    `seed: platform compliance notes — ${notes.created} created, ${notes.updated} updated`,
+  );
 
   const empty = process.argv.includes('--empty');
   if (empty) {
