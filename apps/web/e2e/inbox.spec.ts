@@ -1,6 +1,6 @@
 import { writeFileSync } from 'node:fs';
 import { expect, test, type Browser, type Page } from '@playwright/test';
-import { signIn } from './helpers';
+import { ensureMockConnected, signIn } from './helpers';
 
 /**
  * The §15 end-to-end path, in the browser: connect the mock platform → backfill → an inbound
@@ -9,21 +9,6 @@ import { signIn } from './helpers';
  * Phase 7 acceptance: two users see each other's assignment changes live, and the keyboard
  * model. (The "report reflects it" step lands with Phase 11 reports.)
  */
-
-/**
- * (Re)connect the mock platform. The app hosts the mock in memory, so a connection left over
- * from an earlier run holds a token this server never issued; connecting again re-issues it.
- */
-async function ensureMockConnected(page: Page): Promise<void> {
-  await signIn(page, 'alice@e2e.test', '/w/e2e/settings/integrations');
-  await page.getByRole('link', { name: 'Connect Mock' }).click();
-  // start → mock authorize → callback → back to integrations with the connection listed.
-  await expect(page).toHaveURL(/settings\/integrations\?connected=/, { timeout: 30_000 });
-  await expect(page.getByTestId('connect-ok')).toBeVisible();
-  await expect(page.getByTestId('connection-row').filter({ hasText: 'Mock' })).toHaveCount(1, {
-    timeout: 30_000,
-  });
-}
 
 async function emitComment(page: Page, text: string): Promise<void> {
   const res = await page.request.post('/api/e2e/mock/_emit', { data: { text } });

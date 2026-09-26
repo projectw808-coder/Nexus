@@ -1,10 +1,14 @@
-import AxeBuilder from '@axe-core/playwright';
-import { expect, test, type Page } from '@playwright/test';
-import { signIn } from './helpers';
+import { test, type Page } from '@playwright/test';
+import { assertNoSeriousViolations, signIn } from './helpers';
 
 /**
  * Accessibility gate (§2, §15): axe on every route, failing on serious and critical impact.
- * Routes with dynamic ids are resolved from the seeded data at run time.
+ * Routes with dynamic ids are resolved from the seeded data at run time. The connection-detail
+ * tabs need a live Mock connection and are checked separately in
+ * `settings-integrations.a11y.spec.ts`, which runs after `inbox.spec.ts` (file order matters:
+ * this suite runs with one worker, and reconnecting Mock here first would re-trigger a backfill
+ * whose extra identity-resolution activity shifts what `inbox.spec.ts`'s "first timeline entry"
+ * assertion sees).
  */
 async function firstRecordUrl(page: Page): Promise<string> {
   await page.goto('/w/e2e/records/widget');
@@ -48,6 +52,7 @@ const STATIC_ROUTES = [
   '/w/e2e/settings/audit',
   '/w/e2e/settings/integrations',
   '/w/e2e/settings/canned-replies',
+  '/w/e2e/settings/health',
   '/w/e2e/inbox',
   '/w/e2e/duplicates',
   '/status',
@@ -60,46 +65,13 @@ test.describe('axe', () => {
 
   for (const route of STATIC_ROUTES) {
     test(`no serious or critical violations on ${route}`, async ({ page }) => {
-      await page.goto(route);
-      await page.waitForLoadState('networkidle');
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
-        .analyze();
-      const bad = results.violations.filter(
-        (v) => v.impact === 'serious' || v.impact === 'critical',
-      );
-      expect(
-        bad.map(
-          (v) =>
-            `${v.id}: ${v.nodes
-              .map((n) => n.target.join(' '))
-              .slice(0, 3)
-              .join(' | ')}`,
-        ),
-      ).toEqual([]);
+      await assertNoSeriousViolations(page, route);
     });
   }
 
   test('no serious or critical violations on a record and a board', async ({ page }) => {
     for (const url of [await firstRecordUrl(page), await pipelineUrl(page)]) {
-      await page.goto(url);
-      await page.waitForLoadState('networkidle');
-      const results = await new AxeBuilder({ page })
-        .withTags(['wcag2a', 'wcag2aa', 'wcag22aa'])
-        .analyze();
-      const bad = results.violations.filter(
-        (v) => v.impact === 'serious' || v.impact === 'critical',
-      );
-      expect(
-        bad.map(
-          (v) =>
-            `${v.id}: ${v.nodes
-              .map((n) => n.target.join(' '))
-              .slice(0, 3)
-              .join(' | ')}`,
-        ),
-        url,
-      ).toEqual([]);
+      await assertNoSeriousViolations(page, url);
     }
   });
 });
