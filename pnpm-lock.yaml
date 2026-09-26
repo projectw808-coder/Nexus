@@ -665,6 +665,9 @@ importers:
 
   packages/sync:
     dependencies:
+      '@nexus/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@nexus/config':
         specifier: workspace:*
         version: link:../config

@@ -49,6 +49,7 @@ export { runResourceSync } from './stages/acquire.ts';
 export type { SyncOutcome } from './stages/acquire.ts';
 export { normalizeObjects, requeuePendingNormalization } from './stages/normalize.ts';
 export type { NormalizeOutcome } from './stages/normalize.ts';
+export { enqueueAutomationEventsForObjects, AUTOMATE_JOB } from './react.ts';
 export { receiveWebhook, processWebhookEvent } from './webhooks.ts';
 export type { ReceiveOutcome } from './webhooks.ts';
 export { replayConnection, replayDeadLetter } from './replay.ts';

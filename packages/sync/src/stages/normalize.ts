@@ -12,6 +12,7 @@ import { JOB_NAMES } from '../jobs.ts';
 import { loadConnection } from '../context.ts';
 import { nowOf, type SyncDeps } from '../deps.ts';
 import type { NormalizeJob } from '../jobs.ts';
+import { enqueueAutomationEventsForObjects } from '../react.ts';
 import type { NormalizedBatch } from '../sink.ts';
 
 export type NormalizeOutcome = {
@@ -149,7 +150,15 @@ export async function normalizeObjects(
     }
   }
 
-  if (batch.items.length) await deps.sink.materialize(batch);
+  if (batch.items.length) {
+    await deps.sink.materialize(batch);
+    // Stage 6 (§4.1 "React"): evaluate automation triggers off what stage 5 just wrote.
+    await enqueueAutomationEventsForObjects(deps, {
+      workspaceId: connection.workspaceId,
+      connectionId: connection.id,
+      objectIds: batch.items.map((i) => i.objectId),
+    });
+  }
 
   const now = nowOf(deps);
   await deps.runtime.withTenant(actor, async (db) => {
