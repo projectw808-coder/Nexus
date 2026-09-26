@@ -3,18 +3,22 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "description": "The workflow engine (spec §14): triggers, the condition tree, the action vocabulary, loop detection, per-workflow rate caps, dry run and versioning. Platform side effects are injected by the caller (ADR-021).",
   "exports": {
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
     "lint": "eslint ."
   },
   "dependencies": {
     "@nexus/core": "workspace:*",
+    "@nexus/db": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
   }
 }
