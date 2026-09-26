@@ -106,13 +106,22 @@ export {
 export type { RawInput, PersistRawResult } from './sync/raw-store.ts';
 export { loadCursor, saveCursor, clearCursor } from './sync/cursors.ts';
 export type { CursorState } from './sync/cursors.ts';
-export { startRun, progressRun, finishRun, cancelStaleRuns } from './sync/runs.ts';
+export {
+  startRun,
+  progressRun,
+  finishRun,
+  cancelStaleRuns,
+  dailyRunActivity,
+} from './sync/runs.ts';
 export {
   recordWebhookEvent,
   recordSystemWebhookEvent,
   recordUnroutedWebhookEvent,
   markWebhookProcessed,
   unprocessedWebhookEvents,
+  listWebhookEvents,
+  getWebhookEvent,
+  webhookHealthSummary,
 } from './sync/webhook-events.ts';
 export type { WebhookEventInput } from './sync/webhook-events.ts';
 export { recordDeadLetter, listDeadLetters, markReplayed } from './sync/dead-letters.ts';
@@ -129,6 +138,13 @@ export {
   listConnectionsForTokenSweep,
 } from './sync/connections.ts';
 export type { CreateConnectionInput, ConnectionRow } from './sync/connections.ts';
+export {
+  listConnectionGrants,
+  createConnectionGrant,
+  deleteConnectionGrant,
+} from './sync/grants.ts';
+export type { ConnectionGrantRow } from './sync/grants.ts';
+export { expiringTokens, recentFailedRuns, recentDriftSamples } from './sync/health.ts';
 
 // ── Phase 6: identity resolution and the unified timeline (§10, §6.3, ADR-017) ──
 export * from './identity/index.ts';
@@ -137,3 +153,17 @@ export * from './identity/index.ts';
 export { publishEvent, subscribeEvents, closeEventListener, EVENTS_CHANNEL } from './realtime.ts';
 export type { NexusEvent } from './realtime.ts';
 export { slaMinutesFor, slaDueFor, sweepSnoozed, DEFAULT_SLA_MINUTES } from './inbox.ts';
+
+// ── Phase 9: integrations hub — field mapping (connection-detail tab) ───────
+export {
+  listFieldMappings,
+  getFieldMapping,
+  createFieldMapping,
+  updateFieldMapping,
+  deleteFieldMapping,
+  setFieldMappingRules,
+  assignFieldMapping,
+  getByPath,
+  previewFieldMapping,
+} from './objects/field-mappings.ts';
+export type { FieldMappingRow, FieldMappingRuleRow } from './objects/field-mappings.ts';

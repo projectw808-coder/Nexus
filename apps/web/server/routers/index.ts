@@ -1,9 +1,12 @@
 import { router, userProcedure } from '../trpc';
 import { auditRouter } from './audit';
 import { cannedReplyRouter } from './canned-replies';
+import { connectionGrantRouter } from './connection-grants';
 import { connectionRouter } from './connections';
 import { conversationRouter } from './conversations';
 import { exportRouter } from './export';
+import { fieldMappingRouter } from './field-mappings';
+import { healthRouter } from './health';
 import { identityRouter } from './identities';
 import { mergeSuggestionRouter } from './merge-suggestions';
 import { timelineRouter } from './timeline';
@@ -17,6 +20,7 @@ import { companyRouter, dealRouter, personRouter, recordRouter } from './records
 import { searchRouter } from './search';
 import { taskRouter } from './tasks';
 import { viewRouter } from './views';
+import { webhookEventRouter } from './webhook-events';
 import { workspaceRouter } from './workspace';
 
 export const appRouter = router({
@@ -52,6 +56,11 @@ export const appRouter = router({
   timeline: timelineRouter,
   // Phase 7 — the unified inbox
   cannedReply: cannedReplyRouter,
+  // Phase 9 — the integrations hub & health console
+  connectionGrant: connectionGrantRouter,
+  webhookEvent: webhookEventRouter,
+  fieldMapping: fieldMappingRouter,
+  health: healthRouter,
 });
 
 export type AppRouter = typeof appRouter;
