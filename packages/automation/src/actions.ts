@@ -13,6 +13,7 @@
 import { NexusError } from '@nexus/core';
 import {
   addEntry,
+  consentAllowsSend,
   createRecord,
   loadAttributes,
   moveEntry,
@@ -390,6 +391,12 @@ async function runSendReply(
   if (!conversationId) fail('send_reply: no conversation to reply to.');
   const send = ctx.rt.sendReply;
   if (!send) fail('send_reply: no sendReply callback was injected into the automation runtime.');
+  // §5.5 / ADR-022 decision 3: an unprompted workflow send is gated on consent; a human replying
+  // through the composer is not, so this check lives here and nowhere near requestReply.
+  const gate = await ctx.rt.runtime.withTenant(ctx.actor, (db) =>
+    consentAllowsSend(db, { kind: 'conversation', conversationId }),
+  );
+  if (!gate.allowed) fail(`send_reply: ${gate.reason ?? 'blocked by consent.'}`);
   const result = await send({
     workspaceId: ctx.actor.workspaceId,
     actorUserId: null,
@@ -405,6 +412,11 @@ async function runSendEmail(
 ): Promise<unknown> {
   const send = ctx.rt.sendEmail;
   if (!send) fail('send_email: no sendEmail callback was injected into the automation runtime.');
+  // §5.5 / ADR-022 decision 3: blocks only if every identity on this address has withdrawn.
+  const gate = await ctx.rt.runtime.withTenant(ctx.actor, (db) =>
+    consentAllowsSend(db, { kind: 'email', email: action.to }),
+  );
+  if (!gate.allowed) fail(`send_email: ${gate.reason ?? 'blocked by consent.'}`);
   await send({ to: action.to, subject: action.subject, body: action.body });
   return { to: action.to, subject: action.subject };
 }

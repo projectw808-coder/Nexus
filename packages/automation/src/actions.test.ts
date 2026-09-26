@@ -10,6 +10,7 @@ import {
   createRecord,
   loadAttributes,
   personAttributes,
+  recordConsent,
   systemActorFor,
   type Actor,
 } from '@nexus/db';
@@ -470,6 +471,102 @@ describe('injected side effects', () => {
     );
     expect(run.status).toBe('SUCCEEDED');
     expect(h.emails).toEqual([{ to: 'ops@acme.test', subject: 'Lead', body: 'A new lead.' }]);
+  }, 60_000);
+
+  it('send_reply is blocked when the conversation identity has withdrawn on this channel (§5.5, ADR-022)', async () => {
+    const connection = await db.runtime.withTenant(actor, (t) =>
+      t.connection.create({
+        data: {
+          workspaceId,
+          platform: 'INSTAGRAM',
+          label: 'IG3',
+          accountExternalId: 'ig3',
+          accountName: 'IG3',
+          apiVersion: 'v26.0',
+          tokenRef: 'vault:x',
+        },
+        select: { id: true },
+      }),
+    );
+    const identity = await db.runtime.withTenant(actor, (t) =>
+      t.identity.create({
+        data: { workspaceId, platform: 'INSTAGRAM', externalId: 'withdrawn-1' },
+        select: { id: true },
+      }),
+    );
+    const conversation = await db.runtime.withTenant(actor, (t) =>
+      t.conversation.create({
+        data: {
+          workspaceId,
+          connectionId: connection.id,
+          platform: 'INSTAGRAM',
+          kind: 'DM',
+          externalId: 'reply-withdrawn',
+          identityId: identity.id,
+        },
+        select: { id: true },
+      }),
+    );
+    await db.runtime.withTenant(actor, (t) =>
+      recordConsent(t, actor, {
+        identityId: identity.id,
+        channel: 'INSTAGRAM',
+        status: 'WITHDRAWN',
+      }),
+    );
+
+    const h = harness();
+    const run = await runWorkflowForEvent(
+      h.rt,
+      await workflowWith([
+        { id: 'sr1', type: 'send_reply', conversationId: 'trigger', text: 'Thanks!' },
+      ]),
+      event({ conversationId: conversation.id }),
+    );
+    expect(run.status).toBe('FAILED');
+    expect(stepsOf(run)[0]?.error).toContain('withdrawn');
+    expect(h.replies).toEqual([]);
+  }, 60_000);
+
+  it('send_email is blocked when every identity on that address has withdrawn (§5.5, ADR-022)', async () => {
+    await db.runtime.withTenant(actor, (t) =>
+      t.identity.create({
+        data: {
+          workspaceId,
+          platform: 'INSTAGRAM',
+          externalId: 'withdrawn-email-1',
+          email: 'withdrawn@acme.test',
+        },
+        select: { id: true },
+      }),
+    );
+    const identity = await db.runtime.withTenant(actor, (t) =>
+      t.identity.findFirstOrThrow({
+        where: { workspaceId, externalId: 'withdrawn-email-1' },
+        select: { id: true },
+      }),
+    );
+    await db.runtime.withTenant(actor, (t) =>
+      recordConsent(t, actor, { identityId: identity.id, channel: 'email', status: 'WITHDRAWN' }),
+    );
+
+    const h = harness();
+    const run = await runWorkflowForEvent(
+      h.rt,
+      await workflowWith([
+        {
+          id: 'e1',
+          type: 'send_email',
+          to: 'withdrawn@acme.test',
+          subject: 'Lead',
+          body: 'A new lead.',
+        },
+      ]),
+      event(),
+    );
+    expect(run.status).toBe('FAILED');
+    expect(stepsOf(run)[0]?.error).toContain('withdrawn');
+    expect(h.emails).toEqual([]);
   }, 60_000);
 
   it('call_webhook posts through the injected callback and fails on a non-2xx', async () => {
