@@ -2,6 +2,7 @@
  * Test harness for the tRPC layer: an in-process caller wired to a PGlite database, a memory
  * mail provider and a fake session. No HTTP, no Auth.js.
  */
+import { mockAiModel, type AiModel } from '@nexus/ai';
 import { createKeitaroDouble } from '@nexus/connector-keitaro/testing';
 import { createMockPlatform } from '@nexus/connector-mock';
 import {
@@ -30,6 +31,8 @@ export type Seed = {
   jobs: ReturnType<typeof recordingDispatcher>;
   /** Engine handle whose bus only records; the mock platform runs in-process. */
   sync: SyncDeps & { bus: RecordingBus };
+  /** Deterministic AI model (Phase 10) — never a real network call in tests. */
+  aiModel: AiModel;
   mockPlatform: ReturnType<typeof createMockPlatform>;
   keitaroDouble: ReturnType<typeof createKeitaroDouble>;
   users: { alice: SessionUser; bob: SessionUser; carol: SessionUser };
@@ -61,6 +64,7 @@ export async function seedWorkspaces(): Promise<Seed> {
   const jobs = recordingDispatcher();
   const mockPlatform = createMockPlatform({ totalObjects: 30, accounts: 1 });
   const keitaroDouble = createKeitaroDouble({ totalConversions: 5, apiKey: 'test-keitaro-key' });
+  const aiModel = mockAiModel();
   const quiet = { debug() {}, info() {}, warn() {}, error() {} };
   const sync: Seed['sync'] = {
     runtime: db.runtime,
@@ -122,6 +126,7 @@ export async function seedWorkspaces(): Promise<Seed> {
       appUrl: 'http://localhost:3000',
       jobs,
       sync,
+      aiModel,
     };
     return callerFactory(ctx);
   };
@@ -131,6 +136,7 @@ export async function seedWorkspaces(): Promise<Seed> {
     mail,
     jobs,
     sync,
+    aiModel,
     mockPlatform,
     keitaroDouble,
     users: { alice, bob, carol },

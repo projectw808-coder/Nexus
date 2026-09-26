@@ -27,7 +27,9 @@ export function buildAutomationRuntime(syncDeps: SyncDeps): AutomationRuntime {
         queue: QUEUES.automate,
         name: 'automate.react',
         data: event,
-        opts: { jobId: `automate:followup:${event.workspaceId}:${event.timelineEventId ?? Date.now()}:${event.causation.workflowIds.length}` },
+        opts: {
+          jobId: `automate:followup:${event.workspaceId}:${event.timelineEventId ?? Date.now()}:${event.causation.workflowIds.length}`,
+        },
       });
     },
     sendReply: async (input) => {

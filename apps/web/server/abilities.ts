@@ -44,6 +44,8 @@ export type SubjectName =
   | 'MergeSuggestion'
   | 'RecordMerge'
   | 'CannedReply'
+  | 'Workflow'
+  | 'AiInsight'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -85,6 +87,9 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       // Managers resolve identities, review the merge queue and merge/unmerge records.
       can(['update', 'delete'], ['Identity', 'MergeSuggestion', 'RecordMerge']);
       can(['create', 'update', 'delete'], 'CannedReply');
+      // Automations affect the whole team; AI insight generation/accept/dismiss is lighter.
+      can(['create', 'update', 'delete'], 'Workflow');
+      can(['create', 'read', 'update'], 'AiInsight');
       cannot('read', ['ApiKey', 'ConnectionGrant']);
       break;
     case 'MEMBER':
@@ -105,6 +110,8 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'MergeSuggestion',
         'RecordMerge',
         'CannedReply',
+        'Workflow',
+        'AiInsight',
       ]);
       can(['create', 'update'], ['Record', 'Conversation', 'ListEntry', 'Note', 'Task']);
       can('delete', 'Task');
@@ -113,6 +120,8 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       can(['create', 'update'], 'CannedReply');
       can('export', 'Record');
       can(['create', 'update', 'delete'], 'SavedView');
+      // Trigger a research run/regenerate a brief, and accept/dismiss what comes back.
+      can(['create', 'update'], 'AiInsight');
       break;
     case 'VIEWER':
       can('read', [
@@ -132,6 +141,8 @@ export function defineAbilityFor(actor: Actor): AppAbility {
         'MergeSuggestion',
         'RecordMerge',
         'CannedReply',
+        'Workflow',
+        'AiInsight',
       ]);
       break;
   }

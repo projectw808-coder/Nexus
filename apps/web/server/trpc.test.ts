@@ -64,6 +64,7 @@ describe('tenant procedure guarantees', () => {
       appUrl: 'http://localhost:3000',
       jobs: seed.jobs,
       sync: seed.sync,
+      aiModel: seed.aiModel,
     };
     const caller = createCallerFactory(leaky)(ctx);
     await expect(caller.renameNoAudit()).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });

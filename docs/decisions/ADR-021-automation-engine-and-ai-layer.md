@@ -17,7 +17,7 @@ fix the stage-6 hook point.
 1. **`@nexus/automation` and `@nexus/ai` depend only on `@nexus/core` and `@nexus/db` — never on
    `@nexus/sync` or `@nexus/connector-sdk`.** Anything platform-specific an action needs (sending a
    reply, calling a webhook, sending mail) is injected as a callback on a small runtime bag the
-   *caller* constructs. `apps/worker` is the one place that imports all three packages, so it is
+   _caller_ constructs. `apps/worker` is the one place that imports all three packages, so it is
    the one place that wires `@nexus/sync`'s `requestReply` into `@nexus/automation`'s
    `sendReply` callback. Neither new package ever imports the other's internals; the only thing
    they share is the plain-data `AutomationEvent` shape (see decision 2), which `@nexus/sync` and
@@ -78,13 +78,13 @@ fix the stage-6 hook point.
   `WorkflowRun` rows cannot answer (it gives frequency, not order). `Workflow` gains a
   `state Json @default("{}")` column, a per-workflow scratch pad keyed by the acting action's id
   (every action in the `actions` array carries a builder-assigned `id`), so `assign(mode:
-  'round_robin')` can read and advance its own cursor without a new table.
+'round_robin')` can read and advance its own cursor without a new table.
 - **Workflow versioning is a new `WorkflowVersion` table**, not a JSON array on `Workflow` —
   mirrors `RecordMerge`'s snapshot-and-restore shape (ADR-002) so "rollback" is "copy an old
   version's trigger/conditions/actions back onto the live row," auditable and queryable, rather
   than an opaque blob.
 - **`AiInsight.kind` is not extended for "relationship brief."** The enum (`SUMMARY | SENTIMENT |
-  INTENT | NEXT_BEST_ACTION | CHURN_RISK | RESEARCH`) has no slot for it, and adding one for a
+INTENT | NEXT_BEST_ACTION | CHURN_RISK | RESEARCH`) has no slot for it, and adding one for a
   single feature when `content` is already schema-flexible JSON is unnecessary. A relationship
   brief is stored as `kind: SUMMARY` with `content.kind: 'relationship_brief'`; a conversation
   summary is `content.kind: 'conversation_summary'`. Both carry `citations` pointing at real

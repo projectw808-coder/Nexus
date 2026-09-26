@@ -22,6 +22,7 @@ import {
   type TenantDb,
   type TenantRuntime,
 } from '@nexus/db';
+import type { AiModel } from '@nexus/ai';
 import type { MailProvider } from '@nexus/mail';
 import { initTRPC, TRPCError, type TRPC_ERROR_CODE_KEY } from '@trpc/server';
 import type { SyncDeps } from '@nexus/sync';
@@ -44,6 +45,8 @@ export type Context = {
   jobs: JobDispatcher;
   /** The sync engine handle (Phase 4): registry, vault, limiter and bus. */
   sync: SyncDeps;
+  /** The AI provider seam (Phase 10, ADR-021) — a mock in tests, resolved from env in production. */
+  aiModel: AiModel;
 };
 
 export type AuditRecorder = {

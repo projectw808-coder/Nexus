@@ -46,6 +46,7 @@ type Ids = {
   auditCursor: string | undefined;
   objectTypeId: string;
   attributeId: string;
+  aiResearchAttributeId: string;
   recordId: string;
   listId: string;
   entryId: string;
@@ -76,6 +77,9 @@ type Ids = {
   webhookEventId: string;
   connectionGrantId: string;
   fieldMappingId: string;
+  // Phase 10
+  workflowId: string;
+  aiInsightId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -751,6 +755,108 @@ const FIXTURES: Record<string, Fixture> = {
     input: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
     crossInput: (ids) => ({ id: ids.connectionId, confirmLabel: ids.connectionLabel }),
   },
+  // ── Phase 10 ────────────────────────────────────────────────────────────────
+  'workflow.list': { tier: 'tenant', input: () => undefined },
+  'workflow.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId }),
+    crossInput: (ids) => ({ id: ids.workflowId }),
+  },
+  'workflow.create': {
+    tier: 'tenant',
+    input: () => ({
+      name: `Workflow ${Date.now()}`,
+      trigger: { type: 'record.created', objectTypeApiSlug: 'widget' },
+      conditions: [],
+      actions: [],
+    }),
+  },
+  'workflow.update': {
+    tier: 'tenant',
+    input: (ids) => ({
+      id: ids.workflowId,
+      name: 'Renamed workflow',
+      trigger: { type: 'record.created', objectTypeApiSlug: 'widget' },
+      conditions: [],
+      actions: [],
+    }),
+    crossInput: (ids) => ({
+      id: ids.workflowId,
+      name: 'Pwned',
+      trigger: { type: 'record.created', objectTypeApiSlug: 'widget' },
+      conditions: [],
+      actions: [],
+    }),
+  },
+  'workflow.setEnabled': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId, enabled: true }),
+    crossInput: (ids) => ({ id: ids.workflowId, enabled: true }),
+  },
+  'workflow.dryRun': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId }),
+    crossInput: (ids) => ({ id: ids.workflowId }),
+  },
+  'workflow.runs': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId }),
+    crossInput: (ids) => ({ id: ids.workflowId }),
+  },
+  'workflow.versions': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId }),
+    crossInput: (ids) => ({ id: ids.workflowId }),
+  },
+  'workflow.rollback': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId, toVersion: 1 }),
+    crossInput: (ids) => ({ id: ids.workflowId, toVersion: 1 }),
+  },
+  'workflow.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.workflowId }),
+    crossInput: (ids) => ({ id: ids.workflowId }),
+  },
+  'ai.insights.list': { tier: 'tenant', input: (ids) => ({ recordId: ids.recordId }) },
+  'ai.insights.accept': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.aiInsightId }),
+    crossInput: (ids) => ({ id: ids.aiInsightId }),
+  },
+  'ai.insights.dismiss': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.aiInsightId }),
+    crossInput: (ids) => ({ id: ids.aiInsightId }),
+  },
+  'ai.summarizeConversation': {
+    tier: 'tenant',
+    input: (ids) => ({ conversationId: ids.conversationId }),
+    crossInput: (ids) => ({ conversationId: ids.conversationId }),
+  },
+  'ai.generateRelationshipBrief': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.recordId }),
+    crossInput: (ids) => ({ recordId: ids.recordId }),
+  },
+  'ai.runResearchAttribute': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.recordId, attributeId: ids.aiResearchAttributeId }),
+    crossInput: (ids) => ({ recordId: ids.recordId, attributeId: ids.aiResearchAttributeId }),
+  },
+  'ai.draftReply': {
+    tier: 'tenant',
+    input: (ids) => ({ conversationId: ids.conversationId }),
+    crossInput: (ids) => ({ conversationId: ids.conversationId }),
+  },
+  'ai.scoreLead': {
+    tier: 'tenant',
+    input: (ids) => ({ recordId: ids.recordId }),
+    crossInput: (ids) => ({ recordId: ids.recordId }),
+  },
+  'ai.semanticSearch': { tier: 'tenant', input: () => ({ query: 'price' }) },
+  'ai.settings.get': { tier: 'tenant', input: () => undefined },
+  'ai.settings.update': { tier: 'tenant', input: () => ({ killSwitch: false }) },
 };
 
 let seed: Seed;
@@ -785,6 +891,13 @@ async function freshIds(): Promise<Ids> {
     apiSlug: `f_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
     title: 'Field',
     type: 'TEXT',
+  });
+  const aiResearchAttr = await owner.attribute.create({
+    objectTypeId: widgetTypeId,
+    apiSlug: `ai_${Date.now()}_${Math.floor(Math.random() * 1e6)}`,
+    title: 'AI research field',
+    type: 'AI_RESEARCH',
+    config: { prompt: 'What does this company do?', outputType: 'TEXT' },
   });
   const rec = await owner.record.create({
     objectType: 'widget',
@@ -1004,8 +1117,35 @@ async function freshIds(): Promise<Ids> {
     title: `Seed reply ${Date.now()}`,
     body: 'Hello from the seed',
   });
+  // Phase 10: a workflow (real router round trip) and an AiInsight (seeded directly — generating
+  // one for real would call the AI model, and AI_PROVIDER defaults to 'disabled' in tests).
+  const workflow = await owner.workflow.create({
+    name: `Seed workflow ${Date.now()}`,
+    trigger: { type: 'record.created', objectTypeApiSlug: 'widget' },
+    conditions: [],
+    actions: [],
+  });
+  const aiInsight = await seed.db.runtime.withTenant(
+    seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+    (db) =>
+      db.aiInsight.create({
+        data: {
+          workspaceId: seed.acme.id,
+          recordId: rec.id,
+          kind: 'RESEARCH',
+          content: { kind: 'seed' },
+          model: 'mock',
+          promptVersion: 'v1',
+          confidence: 0.5,
+          citations: [],
+        },
+        select: { id: true },
+      }),
+  );
   return {
     cannedReplyId: canned.id,
+    workflowId: workflow.id,
+    aiInsightId: aiInsight.id,
     ...p6,
     person2Id: person2.id,
     company2Id: company2.id,
@@ -1029,6 +1169,7 @@ async function freshIds(): Promise<Ids> {
     auditCursor: undefined,
     objectTypeId: widgetTypeId,
     attributeId: attr.id,
+    aiResearchAttributeId: aiResearchAttr.id,
     recordId: rec.id,
     listId: list.id,
     entryId: entry.id,

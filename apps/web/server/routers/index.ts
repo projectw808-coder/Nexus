@@ -1,4 +1,5 @@
 import { router, userProcedure } from '../trpc';
+import { aiRouter } from './ai';
 import { auditRouter } from './audit';
 import { cannedReplyRouter } from './canned-replies';
 import { connectionGrantRouter } from './connection-grants';
@@ -21,6 +22,7 @@ import { searchRouter } from './search';
 import { taskRouter } from './tasks';
 import { viewRouter } from './views';
 import { webhookEventRouter } from './webhook-events';
+import { workflowRouter } from './workflows';
 import { workspaceRouter } from './workspace';
 
 export const appRouter = router({
@@ -61,6 +63,9 @@ export const appRouter = router({
   webhookEvent: webhookEventRouter,
   fieldMapping: fieldMappingRouter,
   health: healthRouter,
+  // Phase 10 — automation + AI
+  workflow: workflowRouter,
+  ai: aiRouter,
 });
 
 export type AppRouter = typeof appRouter;

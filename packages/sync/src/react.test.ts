@@ -79,7 +79,12 @@ async function seed(): Promise<{ actor: Actor; workspaceId: string; connectionId
   return { actor, workspaceId: ws.id, connectionId };
 }
 
-async function seedExternalObject(actor: Actor, workspaceId: string, connectionId: string, kind: string) {
+async function seedExternalObject(
+  actor: Actor,
+  workspaceId: string,
+  connectionId: string,
+  kind: string,
+) {
   return db.runtime.withTenant(actor, (tx) =>
     tx.externalObject.create({
       data: {

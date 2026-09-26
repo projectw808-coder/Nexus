@@ -7,6 +7,7 @@ import { loadEnv } from '@nexus/config';
 import { runtime, tenancy } from '@nexus/db';
 import { getMailProvider } from '@nexus/mail';
 import { auth } from '@/auth';
+import { getAiModel } from './ai-model';
 import { createDispatcher } from './jobs';
 import { getSyncDeps } from './sync';
 import { appRouter } from './routers';
@@ -45,6 +46,7 @@ export async function createContext(opts: {
     appUrl: env.APP_URL,
     jobs: createDispatcher(),
     sync: await getSyncDeps(),
+    aiModel: getAiModel(),
   };
 }
 
