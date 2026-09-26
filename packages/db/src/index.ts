@@ -182,3 +182,27 @@ export type { SeedOptions } from './seed/index.ts';
 // Kept as one block on purpose; other Phase 11 work lands elsewhere in this file.
 // ═══════════════════════════════════════════════════════════════════════════════
 export * from './compliance/index.ts';
+
+// ── Phase 11: public REST v1 — API keys and idempotency (§11.2, ADR-022) ────
+export {
+  generateApiKey,
+  hashApiKey,
+  createApiKey,
+  listApiKeys,
+  revokeApiKey,
+  resolveApiKeyActor,
+  apiKeyActor,
+  hasApiScope,
+  API_KEY_PLAINTEXT_PREFIX,
+  API_KEY_PREFIX_LENGTH,
+  API_KEY_RANDOM_CHARS,
+} from './api/keys.ts';
+export type {
+  GeneratedApiKey,
+  CreateApiKeyInput,
+  CreatedApiKey,
+  ApiKeyRow,
+  ResolvedApiKey,
+} from './api/keys.ts';
+export { requestHashFor, checkIdempotency, recordIdempotency } from './api/idempotency.ts';
+export type { IdempotencyRef, StoredResponse } from './api/idempotency.ts';

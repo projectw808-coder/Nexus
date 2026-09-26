@@ -1,5 +1,6 @@
 import { router, userProcedure } from '../trpc';
 import { aiRouter } from './ai';
+import { apiKeyRouter } from './api-keys';
 import { auditRouter } from './audit';
 import { cannedReplyRouter } from './canned-replies';
 import { complianceNoteRouter, dataSubjectRequestRouter } from './compliance';
@@ -72,6 +73,8 @@ export const appRouter = router({
   consent: consentRouter,
   dataSubjectRequest: dataSubjectRequestRouter,
   complianceNote: complianceNoteRouter,
+  // Phase 11 — the public REST API's credentials (ADR-022)
+  apiKey: apiKeyRouter,
 });
 
 export type AppRouter = typeof appRouter;

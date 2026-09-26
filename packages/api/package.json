@@ -1,0 +1,24 @@
+{
+  "name": "@nexus/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "The public REST v1 schema registry (spec §11.2, ADR-022 decision 2): the Zod request/response schemas every /api/v1 route validates with, and the OpenAPI 3.1 document generated from them. No route handlers, no auth — those live in apps/web.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@asteasolutions/zod-to-openapi": "^9.1.0",
+    "@nexus/core": "workspace:*",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

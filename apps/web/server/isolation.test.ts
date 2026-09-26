@@ -80,6 +80,9 @@ type Ids = {
   // Phase 10
   workflowId: string;
   aiInsightId: string;
+  // Phase 11
+  apiKeyId: string;
+  dsrId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -857,6 +860,46 @@ const FIXTURES: Record<string, Fixture> = {
   'ai.semanticSearch': { tier: 'tenant', input: () => ({ query: 'price' }) },
   'ai.settings.get': { tier: 'tenant', input: () => undefined },
   'ai.settings.update': { tier: 'tenant', input: () => ({ killSwitch: false }) },
+  // ── Phase 11 — the public REST API's credentials (ADR-022) ──────────────
+  'apiKey.list': { tier: 'tenant', input: () => undefined },
+  'apiKey.create': {
+    tier: 'tenant',
+    input: () => ({ name: `Seed key ${Date.now()}`, scopes: ['READ'] }),
+  },
+  'apiKey.revoke': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.apiKeyId }),
+    crossInput: (ids) => ({ id: ids.apiKeyId }),
+  },
+  // ── Phase 11 — the compliance layer (§5.5, ADR-022) ──────────────────────
+  'consent.list': { tier: 'tenant', input: () => ({}) },
+  'consent.forIdentity': { tier: 'tenant', input: (ids) => ({ identityId: ids.identityId }) },
+  'consent.record': {
+    tier: 'tenant',
+    input: (ids) => ({ identityId: ids.identityId, channel: 'email', status: 'GRANTED' }),
+    crossInput: (ids) => ({ identityId: ids.identityId, channel: 'email', status: 'GRANTED' }),
+  },
+  'dataSubjectRequest.list': { tier: 'tenant', input: () => ({}) },
+  'dataSubjectRequest.get': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dsrId }),
+    crossInput: (ids) => ({ id: ids.dsrId }),
+  },
+  'dataSubjectRequest.create': {
+    tier: 'tenant',
+    input: () => ({ kind: 'ACCESS', subjectEmail: `dsr-${Date.now()}@example.com` }),
+  },
+  'dataSubjectRequest.release': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dsrId }),
+    crossInput: (ids) => ({ id: ids.dsrId }),
+  },
+  'dataSubjectRequest.reject': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.dsrId, reason: 'Could not verify the requester.' }),
+    crossInput: (ids) => ({ id: ids.dsrId, reason: 'Pwned' }),
+  },
+  'complianceNote.list': { tier: 'tenant', input: () => ({}) },
 };
 
 let seed: Seed;
@@ -1117,6 +1160,16 @@ async function freshIds(): Promise<Ids> {
     title: `Seed reply ${Date.now()}`,
     body: 'Hello from the seed',
   });
+  // Phase 11: a live API key for `apiKey.revoke` to consume.
+  const apiKey = await owner.apiKey.create({
+    name: `Seed key ${Date.now()}`,
+    scopes: ['READ'],
+  });
+  // Phase 11: a live data-subject request for `dataSubjectRequest.get`/`.release`/`.reject`.
+  const dsr = await owner.dataSubjectRequest.create({
+    kind: 'ACCESS',
+    subjectEmail: `dsr-${Date.now()}@example.com`,
+  });
   // Phase 10: a workflow (real router round trip) and an AiInsight (seeded directly — generating
   // one for real would call the AI model, and AI_PROVIDER defaults to 'disabled' in tests).
   const workflow = await owner.workflow.create({
@@ -1146,6 +1199,8 @@ async function freshIds(): Promise<Ids> {
     cannedReplyId: canned.id,
     workflowId: workflow.id,
     aiInsightId: aiInsight.id,
+    apiKeyId: apiKey.id,
+    dsrId: dsr.id,
     ...p6,
     person2Id: person2.id,
     company2Id: company2.id,
@@ -1349,6 +1404,16 @@ describe('every mutation writes an audit row', () => {
         await owner.import.rollback({ id: ids.importJobId });
         expect(await seed.db.runtime.withSystem((s) => s.auditLog.count())).toBeGreaterThan(mid);
         continue;
+      } else if (p.path === 'dataSubjectRequest.release') {
+        // `release` only accepts an EXPORT_READY request; the seeded one is still RECEIVED
+        // (the job that would advance it runs out-of-band, not inline with the seed call).
+        await seed.db.runtime.withSystem((s) =>
+          s.dataSubjectRequest.update({
+            where: { id: ids.dsrId },
+            data: { status: 'EXPORT_READY' },
+          }),
+        );
+        await owner.dataSubjectRequest.release({ id: ids.dsrId });
       } else {
         await callPath(owner, p.path, fx.input(ids));
       }
