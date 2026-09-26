@@ -10,6 +10,7 @@ import {
   createInlineBus,
   createSyncDeps,
   deadLetterJob,
+  deliverOutboundWebhookJob,
   handleJob,
   sdkLoggerFrom,
   type JobBus,
@@ -46,6 +47,7 @@ async function bullQueues(): Promise<Map<string, Queue> | null> {
       QUEUES.ingestRaw,
       QUEUES.normalize,
       QUEUES.outbound,
+      QUEUES.outboundWebhook,
     ]) {
       queues.set(
         name,
@@ -100,6 +102,8 @@ async function build(): Promise<SyncDeps> {
       [QUEUES.ingestRaw]: (j) => handleJob(holder.deps!, j),
       [QUEUES.normalize]: (j) => handleJob(holder.deps!, j),
       [QUEUES.outbound]: (j) => handleJob(holder.deps!, j),
+      // Phase 11: outbound webhooks deliver from the web process too when there is no Redis.
+      [QUEUES.outboundWebhook]: (j) => deliverOutboundWebhookJob(holder.deps!, j.data),
     },
     onDeadLetter: (job, error) => deadLetterJob(holder.deps!, job, error),
     logger,

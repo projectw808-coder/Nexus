@@ -12,6 +12,7 @@ import {
   softDeleteRecords,
   updateRecord,
 } from '@nexus/db';
+import { dispatchOutboundWebhooks } from '@nexus/sync';
 import { z } from 'zod';
 import { identitySummary, linkSummary, personLabels } from '../identity-helpers';
 import {
@@ -221,6 +222,14 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
           payload: { values: row.values },
           causation: { workflowIds: [] },
         });
+        // Phase 11 (ADR-022 decision 4): the same event, fanned out to customer webhooks.
+        await dispatchOutboundWebhooks(ctx.db, ctx.sync.bus, {
+          workspaceId: ctx.workspace.id,
+          type: 'record.created',
+          recordId: row.id,
+          objectTypeApiSlug: ot.apiSlug,
+          payload: { values: row.values },
+        });
         return { ...publicRecord(ctx.actor, attrs, row), label: recordLabel(attrs, row.values) };
       }),
 
@@ -273,6 +282,15 @@ export function recordRouterFor(fixed?: 'person' | 'company' | 'deal') {
             objectTypeApiSlug: existing.objectType.apiSlug,
             payload: { changed, values: after.values },
             causation: { workflowIds: [] },
+          });
+        // Phase 11 (ADR-022 decision 4): the same event, fanned out to customer webhooks.
+        if (changedTitles.length)
+          await dispatchOutboundWebhooks(ctx.db, ctx.sync.bus, {
+            workspaceId: ctx.workspace.id,
+            type: 'record.updated',
+            recordId: after.id,
+            objectTypeApiSlug: existing.objectType.apiSlug,
+            payload: { changed, values: after.values },
           });
         return {
           ...publicRecord(ctx.actor, attrs, after),

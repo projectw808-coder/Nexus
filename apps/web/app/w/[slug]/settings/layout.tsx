@@ -23,6 +23,8 @@ export default async function SettingsLayout({
     { label: 'Canned replies', href: `${base}/canned-replies` },
     { label: 'AI', href: `${base}/ai` },
     { label: 'API keys', href: `${base}/api-keys` },
+    // Phase 11 — outbound webhooks (§11.2); owner/admin only, the page states the closed door.
+    { label: 'Webhooks', href: `${base}/webhooks` },
     { label: 'Compliance', href: `${base}/compliance` },
     // Members and viewers cannot read the log; the tab still shows so the closed door is visible.
     {

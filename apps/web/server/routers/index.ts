@@ -19,6 +19,7 @@ import { invitationRouter } from './invitation';
 import { listEntryRouter, listRouter } from './lists';
 import { memberRouter } from './member';
 import { noteRouter } from './notes';
+import { outboundWebhookRouter } from './outbound-webhooks';
 import { attributeRouter, objectTypeRouter } from './objects';
 import { companyRouter, dealRouter, personRouter, recordRouter } from './records';
 import { searchRouter } from './search';
@@ -75,6 +76,8 @@ export const appRouter = router({
   complianceNote: complianceNoteRouter,
   // Phase 11 — the public REST API's credentials (ADR-022)
   apiKey: apiKeyRouter,
+  // Phase 11 — customer-facing outbound webhooks (§11.2)
+  outboundWebhook: outboundWebhookRouter,
 });
 
 export type AppRouter = typeof appRouter;

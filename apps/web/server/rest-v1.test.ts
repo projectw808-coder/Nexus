@@ -20,6 +20,12 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { restHarness, type RestHarness } from './rest-testing';
 import { seedWorkspaces, type Seed } from './testing';
 
+/** A UUID that is guaranteed not to match `id` — flipping the last hex digit can be a no-op. */
+function mangleId(id: string): string {
+  const last = id.at(-1);
+  return id.slice(0, -1) + (last === '0' ? '1' : '0');
+}
+
 let seed: Seed;
 let rest: RestHarness;
 let readWriteKey: string;
@@ -535,7 +541,7 @@ describe('connections', () => {
 
     const missing = await rest.call(
       'POST',
-      `/api/v1/connections/${connectionId}/runs/${finished.id.replace(/.$/, '0')}/replay`,
+      `/api/v1/connections/${connectionId}/runs/${mangleId(finished.id)}/replay`,
       { key: readWriteKey, body: {} },
     );
     expect([404, 400]).toContain(missing.status);
@@ -569,11 +575,9 @@ describe('the thinner surfaces', () => {
 
     expect(
       (
-        await rest.call(
-          'GET',
-          `/api/v1/conversations/${conversationId.replace(/.$/, '0')}/messages`,
-          { key: readOnlyKey },
-        )
+        await rest.call('GET', `/api/v1/conversations/${mangleId(conversationId)}/messages`, {
+          key: readOnlyKey,
+        })
       ).status,
     ).toBe(404);
   });
@@ -608,11 +612,10 @@ describe('the thinner surfaces', () => {
     ).toBe(403);
     expect(
       (
-        await rest.call(
-          'POST',
-          `/api/v1/conversations/${conversationId.replace(/.$/, '0')}/messages`,
-          { key: readWriteKey, body: { text: 'nope' } },
-        )
+        await rest.call('POST', `/api/v1/conversations/${mangleId(conversationId)}/messages`, {
+          key: readWriteKey,
+          body: { text: 'nope' },
+        })
       ).status,
     ).toBe(404);
   });

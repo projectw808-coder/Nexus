@@ -49,6 +49,8 @@ export type SubjectName =
   // Phase 11 (§5.5) — the compliance layer.
   | 'ConsentRecord'
   | 'DataSubjectRequest'
+  // Phase 11 — customer-facing outbound webhooks (§11.2); secret-bearing, so owner/admin only.
+  | 'OutboundWebhook'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -97,7 +99,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       // deciding a data-subject request stays with owners/admins (they only read the queue).
       can(['create', 'update'], 'ConsentRecord');
       cannot(['create', 'update', 'delete'], 'DataSubjectRequest');
-      cannot('read', ['ApiKey', 'ConnectionGrant']);
+      cannot('read', ['ApiKey', 'ConnectionGrant', 'OutboundWebhook']);
       break;
     case 'MEMBER':
       can('read', [

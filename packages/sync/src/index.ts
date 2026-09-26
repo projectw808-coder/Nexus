@@ -50,6 +50,21 @@ export type { SyncOutcome } from './stages/acquire.ts';
 export { normalizeObjects, requeuePendingNormalization } from './stages/normalize.ts';
 export type { NormalizeOutcome } from './stages/normalize.ts';
 export { enqueueAutomationEventsForObjects, AUTOMATE_JOB } from './react.ts';
+// ── Phase 11: customer-facing outbound webhooks (§11.2, ADR-022 decision 4) ──
+export {
+  OUTBOUND_WEBHOOK_JOB,
+  PUBLIC_EVENT_FOR_TRIGGER,
+  outboundWebhookJobSchema,
+  publicEventFor,
+  outboundWebhookData,
+  outboundWebhookEnqueue,
+  enqueueOutboundWebhookDelivery,
+  dispatchOutboundWebhooks,
+  dispatchOutboundWebhooksForEvent,
+  deliverOutboundWebhookJob,
+  resumeDueOutboundWebhookDeliveries,
+} from './outbound-webhooks.ts';
+export type { OutboundWebhookJobData, OutboundWebhookTriggerEvent } from './outbound-webhooks.ts';
 export { receiveWebhook, processWebhookEvent } from './webhooks.ts';
 export type { ReceiveOutcome } from './webhooks.ts';
 export { replayConnection, replayDeadLetter } from './replay.ts';

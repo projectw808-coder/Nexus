@@ -12,6 +12,8 @@ export const QUEUES = {
   automate: 'automate',
   aiEnrich: 'ai.enrich',
   outbound: 'outbound',
+  /** Customer-facing outbound webhooks (§11.2, Phase 11): one signed HTTP POST per delivery. */
+  outboundWebhook: 'outbound.webhook',
   /** Housekeeping and diagnostics: token refresh, purge, drift samples, the trace ping. */
   system: 'system',
 } as const;

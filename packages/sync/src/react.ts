@@ -10,6 +10,7 @@ import { QUEUES } from '@nexus/config';
 import { type AutomationEvent, type TriggerType } from '@nexus/automation';
 import { systemActorFor } from '@nexus/db';
 import type { SyncDeps } from './deps.ts';
+import { dispatchOutboundWebhooksForEvent } from './outbound-webhooks.ts';
 
 /** Inbound-only TimelineTypes that correspond to a trigger; anything else is not reacted to. */
 const EVENT_TYPE_FOR: Partial<Record<string, TriggerType>> = {
@@ -87,6 +88,9 @@ export async function enqueueAutomationEventsForObjects(
       data: event,
       opts: { jobId: `automate:${row.id}` },
     });
+    // Second, independent consumer of the same event (ADR-022 decision 4): customer-facing
+    // outbound webhooks. Never throws — a subscription problem cannot fail stage 6.
+    await dispatchOutboundWebhooksForEvent(deps, event);
     enqueued += 1;
   }
   return { enqueued };

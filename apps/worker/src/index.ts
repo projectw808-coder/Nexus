@@ -15,6 +15,7 @@ import { startAiHost } from './ai.ts';
 import { startAutomationHost } from './automation.ts';
 import { COMPLIANCE_JOB_NAMES, handleComplianceJob, scheduleComplianceJobs } from './compliance.ts';
 import { startHealthServer } from './health.ts';
+import { startOutboundWebhookHost } from './outbound-webhooks.ts';
 import { handleSystemJob, type SystemJobData } from './processors/system.ts';
 import { createRedis } from './redis.ts';
 import { handleSyncSystemJob, startSyncHost, SYNC_SYSTEM_JOBS } from './sync.ts';
@@ -30,6 +31,12 @@ const connection = createRedis(env.REDIS_URL);
 const syncHost = startSyncHost({ redis: connection, log });
 const automationHost = startAutomationHost({ redis: connection, log, syncDeps: syncHost.deps });
 const aiHost = startAiHost({ redis: connection, log });
+// Phase 11 — customer-facing outbound webhooks (§11.2)
+const outboundWebhookHost = startOutboundWebhookHost({
+  redis: connection,
+  log,
+  syncDeps: syncHost.deps,
+});
 const SYNC_JOB_NAMES = new Set<string>(Object.values(SYNC_SYSTEM_JOBS));
 
 /** Wrap a processor so every job runs inside a consumer span joined to the producer's trace. */
@@ -100,6 +107,7 @@ const health = startHealthServer({
     ...syncHost.workers,
     [QUEUES.automate]: automationHost.worker,
     [QUEUES.aiEnrich]: aiHost.worker,
+    [QUEUES.outboundWebhook]: outboundWebhookHost.worker,
   },
   log,
 });
@@ -120,6 +128,7 @@ async function shutdown(signal: string): Promise<void> {
     syncHost.close(),
     automationHost.close(),
     aiHost.close(),
+    outboundWebhookHost.close(),
     health.close(),
   ]);
   await connection.quit().catch(() => undefined);

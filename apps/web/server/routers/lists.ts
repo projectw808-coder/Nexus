@@ -10,6 +10,7 @@ import {
   type Prisma,
   emitTimelineEvent,
 } from '@nexus/db';
+import { dispatchOutboundWebhooks } from '@nexus/sync';
 import { z } from 'zod';
 import { attributesFor, recordLabel, resolveObjectType } from '../objects-helpers';
 import { authorize, router, tenantProcedure } from '../trpc';
@@ -286,6 +287,15 @@ export const listEntryRouter = router({
         payload: { stage: e.stage },
         causation: { workflowIds: [] },
       });
+      // Phase 11 (ADR-022 decision 4): the same event, fanned out to customer webhooks.
+      await dispatchOutboundWebhooks(ctx.db, ctx.sync.bus, {
+        workspaceId: ctx.workspace.id,
+        type: 'list.entry_added',
+        recordId: input.recordId,
+        listId: input.listId,
+        entryId: e.id,
+        payload: { stage: e.stage },
+      });
       return e;
     }),
 
@@ -366,6 +376,15 @@ export const listEntryRouter = router({
             entryId: e.id,
             payload: { from: before?.stage ?? null, to: e.stage },
             causation: { workflowIds: [] },
+          });
+          // Phase 11 (ADR-022 decision 4): the same event, fanned out to customer webhooks.
+          await dispatchOutboundWebhooks(ctx.db, ctx.sync.bus, {
+            workspaceId: ctx.workspace.id,
+            type: 'list.stage_changed',
+            recordId: entry.recordId,
+            listId: entry.list.id,
+            entryId: e.id,
+            payload: { from: before?.stage ?? null, to: e.stage },
           });
         }
       }

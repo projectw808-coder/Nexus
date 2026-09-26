@@ -83,6 +83,8 @@ type Ids = {
   // Phase 11
   apiKeyId: string;
   dsrId: string;
+  outboundWebhookSubscriptionId: string;
+  outboundWebhookDeliveryId: string;
 };
 
 const FIXTURES: Record<string, Fixture> = {
@@ -901,6 +903,49 @@ const FIXTURES: Record<string, Fixture> = {
     crossInput: (ids) => ({ id: ids.dsrId, reason: 'Pwned' }),
   },
   'complianceNote.list': { tier: 'tenant', input: () => ({}) },
+  // ── Phase 11 — customer-facing outbound webhooks ────────────────────────────
+  'outboundWebhook.catalog': { tier: 'tenant', input: () => undefined },
+  'outboundWebhook.list': { tier: 'tenant', input: () => undefined },
+  'outboundWebhook.create': {
+    tier: 'tenant',
+    input: () => ({
+      url: `https://hooks.example.test/${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+      events: ['record.created'],
+    }),
+  },
+  'outboundWebhook.update': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.outboundWebhookSubscriptionId, description: 'renamed' }),
+    crossInput: (ids) => ({
+      id: ids.outboundWebhookSubscriptionId,
+      url: 'https://pwned.example.test/x',
+    }),
+  },
+  'outboundWebhook.rotateSecret': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.outboundWebhookSubscriptionId }),
+    crossInput: (ids) => ({ id: ids.outboundWebhookSubscriptionId }),
+  },
+  'outboundWebhook.delete': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.outboundWebhookSubscriptionId }),
+    crossInput: (ids) => ({ id: ids.outboundWebhookSubscriptionId }),
+  },
+  'outboundWebhook.deliveries': {
+    tier: 'tenant',
+    input: (ids) => ({ subscriptionId: ids.outboundWebhookSubscriptionId }),
+    crossInput: (ids) => ({ subscriptionId: ids.outboundWebhookSubscriptionId }),
+  },
+  'outboundWebhook.delivery': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
+    crossInput: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
+  },
+  'outboundWebhook.replay': {
+    tier: 'tenant',
+    input: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
+    crossInput: (ids) => ({ id: ids.outboundWebhookDeliveryId }),
+  },
 };
 
 let seed: Seed;
@@ -1171,6 +1216,28 @@ async function freshIds(): Promise<Ids> {
     kind: 'ACCESS',
     subjectEmail: `dsr-${Date.now()}@example.com`,
   });
+  // Phase 11: a webhook endpoint (real router round trip, so the secret goes through the vault)
+  // and one dead-lettered delivery, which is the state `replay` is for.
+  const hook = await owner.outboundWebhook.create({
+    url: `https://hooks.example.test/seed-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+    events: ['record.created'],
+  });
+  const hookDelivery = await seed.db.runtime.withTenant(
+    seed.actorFor(seed.users.alice, seed.acme.id, 'OWNER'),
+    (db) =>
+      db.outboundWebhookDelivery.create({
+        data: {
+          workspaceId: seed.acme.id,
+          subscriptionId: hook.subscription.id,
+          eventType: 'record.created',
+          payload: { recordId: rec.id },
+          idempotencyKey: `seed-${Date.now()}-${Math.floor(Math.random() * 1e6)}`,
+          status: 'DEAD_LETTERED',
+          attempts: 6,
+        },
+        select: { id: true },
+      }),
+  );
   // Phase 10: a workflow (real router round trip) and an AiInsight (seeded directly — generating
   // one for real would call the AI model, and AI_PROVIDER defaults to 'disabled' in tests).
   const workflow = await owner.workflow.create({
@@ -1202,6 +1269,8 @@ async function freshIds(): Promise<Ids> {
     aiInsightId: aiInsight.id,
     apiKeyId: apiKey.id,
     dsrId: dsr.id,
+    outboundWebhookSubscriptionId: hook.subscription.id,
+    outboundWebhookDeliveryId: hookDelivery.id,
     ...p6,
     person2Id: person2.id,
     company2Id: company2.id,
