@@ -8,14 +8,20 @@ import { defineConfig, devices } from '@playwright/test';
 const PORT = 3200;
 const DATA_DIR = './.data/e2e';
 
+const CI = Boolean(process.env['CI']);
+
 export default defineConfig({
   testDir: './e2e',
-  timeout: 90_000,
-  expect: { timeout: 15_000 },
+  // A shared 2-vCPU GitHub-hosted runner is meaningfully slower than a dev machine for this
+  // PGlite-backed suite at 100k+ rows — run #4 timed out waiting for elements (not wrong
+  // content) across scattered specs, and retries didn't help, which is the signature of too
+  // little headroom rather than a race condition. Doubled for CI only; local stays tight.
+  timeout: CI ? 180_000 : 90_000,
+  expect: { timeout: CI ? 30_000 : 15_000 },
   fullyParallel: false,
   workers: 1,
-  retries: process.env['CI'] ? 1 : 0,
-  reporter: process.env['CI'] ? [['github'], ['list']] : 'list',
+  retries: CI ? 1 : 0,
+  reporter: CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: 'retain-on-failure',
