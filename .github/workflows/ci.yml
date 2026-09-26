@@ -100,9 +100,14 @@ jobs:
           retention-days: 7
 
       - name: Lighthouse CI budgets (§2 — 50-record list LCP < 2.0s, TTFB < 300ms)
-        # Reuses the same e2e server (port 3200, E2E_AUTH_BYPASS, apps/web/.lighthouserc.json)
-        # Playwright just built and seeded above — no separate build or seed needed.
+        # Reuses the same e2e server (port 3200, apps/web/.lighthouserc.json). Playwright just
+        # built and seeded above — no separate build or seed needed. E2E_AUTH_BYPASS must be set
+        # here: lhci's startServerCommand only inherits this job's env, and without it every
+        # /api/e2e/session request 404s (the route's own bypass gate), so Lighthouse would audit
+        # nothing but a 404 page.
         working-directory: apps/web
+        env:
+          E2E_AUTH_BYPASS: 'true'
         run: pnpm dlx @lhci/cli@0.14 autorun
       - name: Upload Lighthouse reports
         if: failure()
