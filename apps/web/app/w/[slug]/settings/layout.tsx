@@ -19,6 +19,7 @@ export default async function SettingsLayout({
     { label: 'Members', href: `${base}/members` },
     { label: 'Objects', href: `${base}/objects` },
     { label: 'Integrations', href: `${base}/integrations` },
+    { label: 'Health', href: `${base}/health` },
     { label: 'Canned replies', href: `${base}/canned-replies` },
     // Members and viewers cannot read the log; the tab still shows so the closed door is visible.
     {
