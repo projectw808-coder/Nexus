@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { magicLinkEmail } from '@/lib/mail/templates/magic-link';
+import { magicLinkEmail } from './magic-link.ts';
 
 const URL_WITH_QUERY =
   'https://app.nexus.local/api/auth/callback/email?callbackUrl=%2F&token=abc123&email=ada%40example.com';

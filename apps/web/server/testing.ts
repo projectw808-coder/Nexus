@@ -12,6 +12,7 @@ import {
 } from '@nexus/connector-sdk';
 import { createVault, type Actor } from '@nexus/db';
 import { createTestDatabase, type TestDatabase } from '@nexus/db/testing';
+import { MemoryMailProvider } from '@nexus/mail';
 import {
   countingSink,
   createConnectorRegistry,
@@ -19,7 +20,6 @@ import {
   type JobEnvelope,
   type SyncDeps,
 } from '@nexus/sync';
-import { MemoryMailProvider } from '@/lib/mail/provider';
 import { recordingDispatcher } from './jobs';
 import { appRouter } from './routers';
 import { createCallerFactory, type Context, type SessionUser } from './trpc';

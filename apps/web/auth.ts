@@ -3,7 +3,7 @@
  *
  * Sign-in methods:
  *  - `email`              magic link, always on. The verification mail is rendered by
- *                         `lib/mail/templates/magic-link.ts` and sent through the `MailProvider`
+ *                         `@nexus/mail`'s `magicLinkEmail` and sent through its `MailProvider`
  *                         (Mailpit locally, SMTP in prod, in-memory in tests) rather than by
  *                         Auth.js's built-in nodemailer path.
  *  - `google`             only when GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET are set.
@@ -19,8 +19,7 @@ import NextAuth, { type NextAuthConfig } from 'next-auth';
 import type { EmailConfig } from 'next-auth/providers/email';
 import Google from 'next-auth/providers/google';
 import MicrosoftEntraID from 'next-auth/providers/microsoft-entra-id';
-import { getMailProvider } from '@/lib/mail/provider';
-import { magicLinkEmail } from '@/lib/mail/templates/magic-link';
+import { getMailProvider, magicLinkEmail } from '@nexus/mail';
 
 export const EMAIL_PROVIDER_ID = 'email';
 export type OAuthProviderId = 'google' | 'microsoft-entra-id';

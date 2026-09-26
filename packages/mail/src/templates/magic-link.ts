@@ -5,7 +5,7 @@
  * React Email is deferred; this is hand-written HTML with inline styles because that is what
  * mail clients reliably render.
  */
-import { escapeHtml } from '@/lib/mail/provider';
+import { escapeHtml } from '../provider.ts';
 
 export type MagicLinkInput = {
   /** The full sign-in URL Auth.js generated (carries the token). */

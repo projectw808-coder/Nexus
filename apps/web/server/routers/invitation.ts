@@ -1,7 +1,7 @@
 import { NexusError } from '@nexus/core';
 import { Role, generateToken, hashToken } from '@nexus/db';
+import { escapeHtml } from '@nexus/mail';
 import { z } from 'zod';
-import { escapeHtml } from '@/lib/mail/provider';
 import { assignableRoles } from '../abilities';
 import { authorize, publicProcedure, router, tenantProcedure, userProcedure } from '../trpc';
 

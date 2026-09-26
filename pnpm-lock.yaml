@@ -223,6 +223,9 @@ importers:
       '@nexus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nexus/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
       '@nexus/sync':
         specifier: workspace:*
         version: link:../../packages/sync
@@ -265,9 +268,6 @@ importers:
       next-auth:
         specifier: 5.0.0-beta.32
         version: 5.0.0-beta.32(next@16.3.6(@babel/core@7.29.7)(@opentelemetry/api@1.9.1)(@playwright/test@1.63.0)(@types/node@24.13.6)(react-dom@19.3.0(react@19.3.0))(react@19.3.0))(nodemailer@8.0.11)(react@19.3.0)
-      nodemailer:
-        specifier: ^8.0.11
-        version: 8.0.11
       react:
         specifier: 19.3.0
         version: 19.3.0
@@ -302,9 +302,6 @@ importers:
       '@tailwindcss/postcss':
         specifier: ^4.3.3
         version: 4.3.3
-      '@types/nodemailer':
-        specifier: ^8.0.2
-        version: 8.0.2
       '@types/react':
         specifier: 19.3.0
         version: 19.3.0
@@ -338,6 +335,9 @@ importers:
       '@nexus/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@nexus/mail':
+        specifier: workspace:*
+        version: link:../../packages/mail
       '@nexus/sync':
         specifier: workspace:*
         version: link:../../packages/sync
@@ -626,6 +626,31 @@ importers:
         specifier: ^5.0.1
         version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(jiti@2.7.0)(tsx@4.23.15))
 
+  packages/mail:
+    dependencies:
+      '@nexus/config':
+        specifier: workspace:*
+        version: link:../config
+      '@nexus/core':
+        specifier: workspace:*
+        version: link:../core
+      '@nexus/telemetry':
+        specifier: workspace:*
+        version: link:../telemetry
+      nodemailer:
+        specifier: ^8.0.11
+        version: 8.0.11
+    devDependencies:
+      '@types/nodemailer':
+        specifier: ^8.0.2
+        version: 8.0.2
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: ^5.0.1
+        version: 5.0.1(@opentelemetry/api@1.9.1)(@types/node@24.13.6)(vite@8.3.0(@types/node@24.13.6)(jiti@2.7.0)(tsx@4.23.15))
+
   packages/sync:
     dependencies:
       '@nexus/config':
@@ -661,6 +686,9 @@ importers:
       '@nexus/db':
         specifier: workspace:*
         version: link:../db
+      '@nexus/mail':
+        specifier: workspace:*
+        version: link:../mail
       zod:
         specifier: ^4.6.5
         version: 4.6.5

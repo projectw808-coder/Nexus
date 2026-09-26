@@ -1,0 +1,26 @@
+{
+  "name": "@nexus/mail",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Transactional mail (spec §3): the MailProvider interface, SMTP/in-memory providers, and the templates rendered through it. Shared by apps/web and apps/worker.",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "eslint .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nexus/config": "workspace:*",
+    "@nexus/core": "workspace:*",
+    "@nexus/telemetry": "workspace:*",
+    "nodemailer": "^8.0.11"
+  },
+  "devDependencies": {
+    "@types/nodemailer": "^8.0.2",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.1"
+  }
+}

@@ -5,8 +5,8 @@
  */
 import { loadEnv } from '@nexus/config';
 import { runtime, tenancy } from '@nexus/db';
+import { getMailProvider } from '@nexus/mail';
 import { auth } from '@/auth';
-import { getMailProvider } from '@/lib/mail/provider';
 import { createDispatcher } from './jobs';
 import { getSyncDeps } from './sync';
 import { appRouter } from './routers';

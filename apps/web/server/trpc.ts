@@ -22,10 +22,10 @@ import {
   type TenantDb,
   type TenantRuntime,
 } from '@nexus/db';
+import type { MailProvider } from '@nexus/mail';
 import { initTRPC, TRPCError, type TRPC_ERROR_CODE_KEY } from '@trpc/server';
-import superjson from 'superjson';
-import type { MailProvider } from '@/lib/mail/provider';
 import type { SyncDeps } from '@nexus/sync';
+import superjson from 'superjson';
 import type { JobDispatcher } from './jobs';
 import { defineAbilityFor, type Action, type AppAbility, type Subject } from './abilities';
 
