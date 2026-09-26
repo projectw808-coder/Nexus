@@ -29,7 +29,11 @@ jobs:
   # wired into the same workflow instead of a new one.
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 20m was set early in the build and never revisited; by Phase 11 the job (typecheck, lint,
+    # format, unit tests, migrations, drift gate, build, a single-worker 7-file Playwright e2e
+    # suite seeding 100k records, Lighthouse, coverage) runs well past it on a shared runner —
+    # run #3 was cancelled mid-e2e at exactly 20m0s, not failing any assertion.
+    timeout-minutes: 45
     services:
       postgres:
         image: pgvector/pgvector:pg16
