@@ -33,13 +33,11 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
           Skip to content
         </a>
         <header className="flex h-12 items-center justify-between border-b border-hairline px-4">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="inline-block size-5 rounded-[6px] bg-ink"
-              style={{ maskImage: 'none' }}
-            />
-            <span className="text-[var(--text-md)] font-semibold tracking-tight">Pantera CRM</span>
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-[var(--text-md)] font-bold tracking-tight">Pantera CRM</span>
+            <span aria-hidden className="text-[var(--text-sm)] font-bold tracking-wider text-link">
+              ///
+            </span>
           </div>
           <ThemeToggle initial={theme} />
         </header>
