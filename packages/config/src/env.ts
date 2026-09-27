@@ -58,6 +58,9 @@ export const envSchema = z.object({
 
   // ── auth & mail ──────────────────────────────────────────────────────────
   SMTP_URL: optional,
+  /** Postmark server API token. Preferred over SMTP_URL: many hosts (Railway included) block
+   * outbound SMTP ports entirely, but the HTTPS API always works. */
+  POSTMARK_SERVER_TOKEN: optional,
   EMAIL_FROM: z.string().default('Nexus <no-reply@nexus.local>'),
   AUTH_MICROSOFT_ENTRA_ID_ID: optional,
   AUTH_MICROSOFT_ENTRA_ID_SECRET: optional,

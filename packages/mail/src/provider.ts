@@ -53,6 +53,48 @@ export class SmtpMailProvider implements MailProvider {
   }
 }
 
+/** Postmark's HTTPS API. Preferred over SMTP: many hosts (Railway included) block outbound SMTP
+ * ports entirely, so a raw `nodemailer` SMTP transport just hangs until it times out. */
+export class PostmarkMailProvider implements MailProvider {
+  constructor(
+    private readonly serverToken: string,
+    private readonly defaultFrom: string,
+  ) {}
+  async send(message: MailMessage): Promise<Result<{ id: string }>> {
+    try {
+      const res = await fetch('https://api.postmarkapp.com/email', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          'X-Postmark-Server-Token': this.serverToken,
+        },
+        body: JSON.stringify({
+          From: message.from ?? this.defaultFrom,
+          To: message.to,
+          Subject: message.subject,
+          HtmlBody: message.html,
+          TextBody: message.text,
+        }),
+      });
+      const body = (await res.json()) as { MessageID?: string; Message?: string };
+      if (!res.ok) {
+        throw new Error(body.Message ?? `Postmark responded ${res.status}`);
+      }
+      return ok({ id: body.MessageID ?? '' });
+    } catch (cause) {
+      return err(
+        new NexusError('PLATFORM_DOWN', {
+          message: 'Postmark send failed',
+          context: { platformName: 'the mail server' },
+          details: { kind: message.kind },
+          cause,
+        }),
+      );
+    }
+  }
+}
+
 /** Records messages instead of sending them. Used by tests and when no SMTP_URL is set. */
 export class MemoryMailProvider implements MailProvider {
   readonly sent: MailMessage[] = [];
@@ -80,10 +122,15 @@ let provider: MailProvider | undefined;
 export function getMailProvider(): MailProvider {
   if (provider) return provider;
   const env = loadEnv();
-  provider =
-    env.SMTP_URL && env.NODE_ENV !== 'test'
-      ? new SmtpMailProvider(env.SMTP_URL, env.EMAIL_FROM)
-      : new MemoryMailProvider();
+  if (env.NODE_ENV === 'test') {
+    provider = new MemoryMailProvider();
+  } else if (env.POSTMARK_SERVER_TOKEN) {
+    provider = new PostmarkMailProvider(env.POSTMARK_SERVER_TOKEN, env.EMAIL_FROM);
+  } else if (env.SMTP_URL) {
+    provider = new SmtpMailProvider(env.SMTP_URL, env.EMAIL_FROM);
+  } else {
+    provider = new MemoryMailProvider();
+  }
   return provider;
 }
 
