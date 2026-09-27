@@ -60,6 +60,24 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm db:generate
 
+      - name: Cache turbo task outputs
+        # turbo hashes each task's actual inputs itself, so a stale restore can only ever cause
+        # a cache miss (safe), never an incorrect hit — restore-keys falls back to the closest
+        # prior cache when this exact commit has no cache yet.
+        uses: actions/cache@v4
+        with:
+          path: .turbo
+          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-turbo-
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+
       - name: Typecheck
         run: pnpm typecheck
       - name: Lint (incl. nexus/* rules)
@@ -140,9 +158,12 @@ jobs:
         # vitest.config.ts (already configured; `pnpm --filter <pkg> coverage` reports it locally).
         continue-on-error: true
         run: |
+          pids=()
           for pkg in core connector-sdk connector-meta connector-mock connector-x connector-linkedin connector-tiktok connector-youtube connector-keitaro; do
-            pnpm --filter "@nexus/$pkg" coverage || true
+            pnpm --filter "@nexus/$pkg" coverage &
+            pids+=($!)
           done
+          for pid in "${pids[@]}"; do wait "$pid" || true; done
 
       # k6 load test (§15 "10k webhooks/min ingest", §2 "webhook ingest ack p99 < 200ms") is not
       # run on every PR — it needs a live server plus a real connection id/webhook secret to sign
