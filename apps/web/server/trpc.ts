@@ -26,9 +26,16 @@ import type { AiModel } from '@nexus/ai';
 import type { MailProvider } from '@nexus/mail';
 import { initTRPC, TRPCError, type TRPC_ERROR_CODE_KEY } from '@trpc/server';
 import type { SyncDeps } from '@nexus/sync';
+import { createLogger } from '@nexus/telemetry';
 import superjson from 'superjson';
 import type { JobDispatcher } from './jobs';
 import { defineAbilityFor, type Action, type AppAbility, type Subject } from './abilities';
+
+// The HTTP tRPC adapter (apps/web/app/api/trpc/[trpc]/route.ts) logs INTERNAL_SERVER_ERROR
+// itself, but server actions and RSC loaders call procedures through `api()` directly, bypassing
+// that adapter entirely — without this, an internal error there reaches the user as the generic
+// "Something went wrong on our side" with no trace anywhere in the logs.
+const log = createLogger({ name: 'trpc', level: 'info' });
 
 export type SessionUser = { id: string; email: string; name: string | null };
 
@@ -93,12 +100,14 @@ export function toTrpcError(e: unknown): TRPCError {
   }
   if (e instanceof TenantScopeError) {
     // A scoping violation is a programming error, never a user error; do not leak details.
+    log.error({ err: e }, 'tenant scope violation');
     return new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
       message: 'Request could not be completed.',
       cause: e,
     });
   }
+  log.error({ err: e }, 'unhandled error in tRPC procedure');
   return new TRPCError({
     code: 'INTERNAL_SERVER_ERROR',
     message: 'Something went wrong on our side.',
