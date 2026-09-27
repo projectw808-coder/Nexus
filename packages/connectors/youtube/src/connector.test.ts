@@ -54,6 +54,23 @@ defineConnectorContract(
 );
 
 describe('YouTube connector', () => {
+  it('buildAuthUrl points at accounts.google.com with the real client id, never googleapis.com', () => {
+    const configured = createYoutubeConnector({
+      baseUrl: 'https://www.googleapis.test',
+      clientId: 'real-google-client',
+    });
+    const ctx = createTestConnCtx<YoutubeConfig>({
+      manifest: youtubeManifest,
+      fetch: () => Promise.reject(new Error('unused')),
+      config: { baseUrl: 'https://www.googleapis.test', clientId: 'real-google-client' },
+    });
+    const authUrl = configured.buildAuthUrl(ctx, { scopes: ['https://www.googleapis.com/auth/youtube.readonly'], state: 'state123' });
+    const parsed = new URL(authUrl);
+    expect(parsed.origin).toBe('https://accounts.google.com');
+    expect(parsed.pathname).toBe('/o/oauth2/v2/auth');
+    expect(parsed.searchParams.get('client_id')).toBe('real-google-client');
+  });
+
   it('listResources declares only yt.videos and yt.comments — no search.list resource', () => {
     const ids = connector.listResources().map((r) => r.id);
     expect(ids).toEqual(['yt.videos', 'yt.comments']);

@@ -65,6 +65,24 @@ defineConnectorContract(
 );
 
 describe('X connector', () => {
+  it('buildAuthUrl points at twitter.com/i/oauth2/authorize with the real client id, never api.x.com', () => {
+    const configured = createXConnector({ baseUrl: 'https://x.example.test', clientId: 'real-x-client' });
+    const ctx = createTestConnCtx<XConfig>({
+      manifest: xManifest,
+      fetch: () => Promise.reject(new Error('unused')),
+      config: { baseUrl: 'https://x.example.test', clientId: 'real-x-client' },
+    });
+    const authUrl = configured.buildAuthUrl(ctx, {
+      scopes: ['tweet.read'],
+      state: 'state123',
+      pkce: { verifier: 'v', challenge: 'c', method: 'S256' },
+    });
+    const parsed = new URL(authUrl);
+    expect(parsed.origin).toBe('https://twitter.com');
+    expect(parsed.pathname).toBe('/i/oauth2/authorize');
+    expect(parsed.searchParams.get('client_id')).toBe('real-x-client');
+  });
+
   it('has no webhook support: verifyWebhook and parseWebhook are always inert', () => {
     const req = {
       method: 'POST',

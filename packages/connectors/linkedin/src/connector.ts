@@ -35,6 +35,13 @@ import { linkedinManifest, KINDS } from './manifest.ts';
 export type LinkedinConfig = {
   /** API origin — overridable so tests point at a double (`https://api.linkedin.com` in prod). */
   baseUrl: string;
+  /** OAuth 2.0 client id (public — LINKEDIN_CLIENT_ID; the secret only ever travels through
+   * ctx.appCredentials()). */
+  clientId?: string;
+  /** LinkedIn's OAuth authorize AND token endpoints are both on www.linkedin.com, not
+   * api.linkedin.com (`baseUrl`, which is only the data API's origin). Overridable only so a
+   * test can point at a double. */
+  oauthOrigin?: string;
 };
 
 /** Scopes that gate organization content and Lead Sync — see manifest.ts for why. */
@@ -213,6 +220,8 @@ const E164_RE = /^\+[1-9]\d{1,14}$/;
 export function createLinkedinConnector(config: LinkedinConfig): Connector<LinkedinConfig> {
   const base = config.baseUrl.replace(/\/+$/, '');
   const url = (path: string) => `${base}${path}`;
+  const oauthBase = (config.oauthOrigin ?? 'https://www.linkedin.com').replace(/\/+$/, '');
+  const oauthUrl = (path: string) => `${oauthBase}${path}`;
 
   const connector: Connector<LinkedinConfig> = {
     manifest: linkedinManifest,
@@ -220,8 +229,10 @@ export function createLinkedinConnector(config: LinkedinConfig): Connector<Linke
     // ── auth: vanilla 3-legged OAuth2 (no PKCE requirement documented for LinkedIn) ──
     buildAuthUrl(ctx, opts) {
       return buildAuthorizationUrl({
-        authorizeUrl: url('/oauth/v2/authorization'),
-        clientId: 'linkedin-client', // resolved for real from ctx.appCredentials() at exchange time
+        // www.linkedin.com, not `url()` — LinkedIn's OAuth endpoints live there, not on
+        // api.linkedin.com (the data API origin `baseUrl` points at).
+        authorizeUrl: oauthUrl('/oauth/v2/authorization'),
+        clientId: config.clientId ?? 'linkedin-client-id-not-configured',
         redirectUri: ctx.redirectUri,
         scopes: opts.scopes,
         state: opts.state,
@@ -230,7 +241,7 @@ export function createLinkedinConnector(config: LinkedinConfig): Connector<Linke
     async exchangeCode(ctx, code) {
       const creds = await ctx.appCredentials();
       return exchangeAuthorizationCode(ctx.http, {
-        tokenUrl: url('/oauth/v2/accessToken'),
+        tokenUrl: oauthUrl('/oauth/v2/accessToken'),
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
         code,
@@ -241,7 +252,7 @@ export function createLinkedinConnector(config: LinkedinConfig): Connector<Linke
     async refresh(ctx, token) {
       const creds = await ctx.appCredentials();
       return refreshAccessToken(ctx.http, {
-        tokenUrl: url('/oauth/v2/accessToken'),
+        tokenUrl: oauthUrl('/oauth/v2/accessToken'),
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
         token,
@@ -250,7 +261,7 @@ export function createLinkedinConnector(config: LinkedinConfig): Connector<Linke
     async revoke(ctx, token) {
       const creds = await ctx.appCredentials();
       await revokeToken(ctx.http, {
-        revokeUrl: url('/oauth/v2/revoke'),
+        revokeUrl: oauthUrl('/oauth/v2/revoke'),
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
         token: token.accessToken,

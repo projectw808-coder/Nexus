@@ -32,6 +32,12 @@ import { xManifest, KINDS, RATE_CARD, DEFAULT_PAGE_SIZE } from './manifest.ts';
 export type XConfig = {
   /** API origin — overridable so tests point at a double. */
   baseUrl: string;
+  /** OAuth 2.0 client id (public — X_CLIENT_ID; the secret only ever travels through
+   * ctx.appCredentials()). */
+  clientId?: string;
+  /** X's authorization page is served from twitter.com, not api.x.com (`baseUrl`) — a different
+   * host entirely. Overridable only so a test can point at a double. */
+  authorizeOrigin?: string;
 };
 
 // ─── raw shapes (strict: anything else is schema drift) ────────────────────
@@ -86,6 +92,7 @@ function endpointFor(id: ResourceId): string {
 export function createXConnector(config: XConfig): Connector<XConfig> {
   const base = config.baseUrl.replace(/\/+$/, '');
   const url = (path: string) => `${base}${path}`;
+  const authorizeBase = (config.authorizeOrigin ?? 'https://twitter.com').replace(/\/+$/, '');
   const bearer = async (ctx: ConnCtx<XConfig>) => ({
     authorization: `Bearer ${(await ctx.token()).accessToken}`,
   });
@@ -178,8 +185,10 @@ export function createXConnector(config: XConfig): Connector<XConfig> {
       if (!opts.pkce)
         throw new NexusError('VALIDATION', { message: 'X requires PKCE (authKind: oauth2_pkce)' });
       return buildAuthorizationUrl({
-        authorizeUrl: url('/oauth/authorize'),
-        clientId: 'x-client',
+        // twitter.com, not `url()` — X's OAuth 2.0 authorize page is not served from api.x.com,
+        // and the old OAuth 1.0a `/oauth/authorize` path doesn't exist under OAuth 2.0 either.
+        authorizeUrl: `${authorizeBase}/i/oauth2/authorize`,
+        clientId: config.clientId ?? 'x-client-id-not-configured',
         redirectUri: ctx.redirectUri,
         scopes: opts.scopes,
         state: opts.state,
@@ -190,7 +199,7 @@ export function createXConnector(config: XConfig): Connector<XConfig> {
     async exchangeCode(ctx, code, verifier) {
       const creds = await ctx.appCredentials();
       return exchangeAuthorizationCode(ctx.http, {
-        tokenUrl: url('/oauth/token'),
+        tokenUrl: url('/2/oauth2/token'),
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
         code,
@@ -202,7 +211,7 @@ export function createXConnector(config: XConfig): Connector<XConfig> {
     async refresh(ctx, token) {
       const creds = await ctx.appCredentials();
       return refreshAccessToken(ctx.http, {
-        tokenUrl: url('/oauth/token'),
+        tokenUrl: url('/2/oauth2/token'),
         clientId: creds.clientId,
         clientSecret: creds.clientSecret,
         token,

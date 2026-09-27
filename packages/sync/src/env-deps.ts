@@ -122,6 +122,14 @@ export function createSyncDeps(opts: CreateDepsOptions): SyncDeps {
         loginConfigId: opts.env.META_LOGIN_CONFIG_ID,
         graphOrigin: opts.env.META_GRAPH_ORIGIN,
       },
+      // X, LinkedIn and YouTube each need their own registered OAuth app's client id at
+      // buildAuthUrl time (public — the secret only ever travels through appCredentials()). Until
+      // a workspace sets the matching env var, `clientId` is undefined and each connector's own
+      // buildAuthUrl falls back to an explicit "not-configured" placeholder client id rather than
+      // silently sending a request the platform will just reject with no clue why.
+      x: { baseUrl: 'https://api.x.com', clientId: opts.env.X_CLIENT_ID },
+      linkedin: { baseUrl: 'https://api.linkedin.com', clientId: opts.env.LINKEDIN_CLIENT_ID },
+      youtube: { baseUrl: 'https://www.googleapis.com', clientId: opts.env.GOOGLE_CLIENT_ID },
       ...opts.registry,
     }),
     bus: opts.bus,

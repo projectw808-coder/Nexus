@@ -66,6 +66,23 @@ defineConnectorContract(
 );
 
 describe('LinkedIn connector', () => {
+  it('buildAuthUrl points at www.linkedin.com with the real client id, never api.linkedin.com', () => {
+    const configured = createLinkedinConnector({
+      baseUrl: 'https://api.linkedin.example.test',
+      clientId: 'real-linkedin-client',
+    });
+    const ctx = createTestConnCtx<LinkedinConfig>({
+      manifest: linkedinManifest,
+      fetch: () => Promise.reject(new Error('unused')),
+      config: { baseUrl: 'https://api.linkedin.example.test', clientId: 'real-linkedin-client' },
+    });
+    const authUrl = configured.buildAuthUrl(ctx, { scopes: MEMBER_ONLY_SCOPES, state: 'state123' });
+    const parsed = new URL(authUrl);
+    expect(parsed.origin).toBe('https://www.linkedin.com');
+    expect(parsed.pathname).toBe('/oauth/v2/authorization');
+    expect(parsed.searchParams.get('client_id')).toBe('real-linkedin-client');
+  });
+
   it('discovers approved organizations as accounts', async () => {
     const ctx = ctxFor(shared);
     const accounts = await connector.discoverAccounts(ctx);

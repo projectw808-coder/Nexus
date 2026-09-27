@@ -38,6 +38,12 @@ import { youtubeManifest, KINDS } from './manifest.ts';
 export type YoutubeConfig = {
   /** API origin — `https://www.googleapis.com` in production, a double's origin in tests. */
   baseUrl: string;
+  /** OAuth client id (public — GOOGLE_CLIENT_ID; the secret only ever travels through
+   * ctx.appCredentials()). Same Google Cloud OAuth client "Sign in with Google" uses. */
+  clientId?: string;
+  /** Google's authorization server — fixed, not `baseUrl` (that's the googleapis.com API
+   * origin, a different host entirely). Overridable only so a test can point at a double. */
+  authorizeOrigin?: string;
 };
 
 // ─── raw shapes (strict: anything else is schema drift) ────────────────────
@@ -187,6 +193,10 @@ async function withBudget<T>(
 export function createYoutubeConnector(config: YoutubeConfig): Connector<YoutubeConfig> {
   const base = config.baseUrl.replace(/\/+$/, '');
   const url = (path: string) => `${base}${path}`;
+  const authorizeBase = (config.authorizeOrigin ?? 'https://accounts.google.com').replace(
+    /\/+$/,
+    '',
+  );
   const bearer = async (ctx: ConnCtx<YoutubeConfig>) => ({
     authorization: `Bearer ${(await ctx.token()).accessToken}`,
   });
@@ -197,8 +207,10 @@ export function createYoutubeConnector(config: YoutubeConfig): Connector<Youtube
     // ── auth: standard Google OAuth2 authorization code ──
     buildAuthUrl(ctx, opts) {
       return buildAuthorizationUrl({
-        authorizeUrl: url('/o/oauth2/v2/auth'),
-        clientId: 'google-client-id',
+        // accounts.google.com, not `url()` — that helper is the googleapis.com API origin,
+        // a different host that 404s on the OAuth authorize path.
+        authorizeUrl: `${authorizeBase}/o/oauth2/v2/auth`,
+        clientId: config.clientId ?? 'google-client-id-not-configured',
         redirectUri: ctx.redirectUri,
         scopes: opts.scopes,
         state: opts.state,
