@@ -1,0 +1,36 @@
+node_modules/
+**/node_modules/
+.pnpm-store/
+.turbo/
+dist/
+.next/
+**/.next/
+out/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
+
+# Prisma's generated client embeds a platform-specific query engine binary; the container must
+# run `prisma generate` itself (see apps/web/Dockerfile and apps/worker/Dockerfile) rather than
+# inherit whatever the host machine generated.
+packages/db/src/generated/
+
+infra/.data/
+.DS_Store
+Thumbs.db
+apps/web/next-env.d.ts
+.claude/
+.data/
+**/.data/
+*.tsbuildinfo
+
+# Playwright
+apps/web/test-results/
+apps/web/playwright-report/
+apps/web/.openapi-generated/
+
+.git/
+.github/
+docs/
