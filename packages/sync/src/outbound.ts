@@ -206,7 +206,7 @@ export async function requestReply(deps: SyncDeps, input: ReplyRequest): Promise
       connectionId: conv.connectionId,
       outboundActionId: row.id,
     },
-    opts: { jobId: `outbound:${row.id}`, lane: 'interactive' },
+    opts: { jobId: `outbound-${row.id}`, lane: 'interactive' },
   });
   return {
     status: 'queued',

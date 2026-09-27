@@ -347,7 +347,7 @@ export const connectionRouter = router({
         queue: row.queue as 'sync.backfill',
         name: row.jobName,
         data: row.payload,
-        opts: { jobId: `replay:${row.id}:${Date.now()}` },
+        opts: { jobId: `replay-${row.id}-${Date.now()}` },
       });
       await markReplayed(ctx.db, row.id, job.jobId);
       await ctx.audit({

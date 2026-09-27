@@ -28,7 +28,7 @@ export function buildAutomationRuntime(syncDeps: SyncDeps): AutomationRuntime {
         name: 'automate.react',
         data: event,
         opts: {
-          jobId: `automate:followup:${event.workspaceId}:${event.timelineEventId ?? Date.now()}:${event.causation.workflowIds.length}`,
+          jobId: `automate-followup-${event.workspaceId}-${event.timelineEventId ?? Date.now()}-${event.causation.workflowIds.length}`,
         },
       });
     },

@@ -52,7 +52,7 @@ export const webhookEventRouter = router({
           connectionId: event.connectionId,
           eventId: event.id,
         },
-        opts: { jobId: `webhook-replay:${event.id}:${Date.now()}`, lane: 'webhook' },
+        opts: { jobId: `webhook-replay-${event.id}-${Date.now()}`, lane: 'webhook' },
       });
       await ctx.audit({
         action: 'webhook_event.replayed',

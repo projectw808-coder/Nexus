@@ -114,7 +114,7 @@ export async function enqueueDelta(
     queue: QUEUES.syncDelta,
     name: JOB_NAMES.sync,
     data: job,
-    opts: { jobId: `${syncJobId(job)}:${Date.now()}`, lane: job.lane },
+    opts: { jobId: `${syncJobId(job)}-${Date.now()}`, lane: job.lane },
   });
   return res.jobId;
 }

@@ -168,7 +168,7 @@ export async function receiveWebhook(
       connectionId: routed.id,
       eventId: ev.id,
     } satisfies IngestRawJob,
-    opts: { jobId: `webhook:${ev.id}`, lane: 'webhook' },
+    opts: { jobId: `webhook-${ev.id}`, lane: 'webhook' },
   });
   return { status: 200, eventId: ev.id, routed: true, jobId: job.jobId };
 }

@@ -99,11 +99,13 @@ export async function runJobInline(
   }
 }
 
-/** A stable job id where one exists (so a retry cannot double-run), a unique one otherwise. */
+/** A stable job id where one exists (so a retry cannot double-run), a unique one otherwise.
+ * BullMQ rejects a custom id containing `:` (it's the delimiter BullMQ's own Redis keys use
+ * internally) — `-` throughout instead. */
 function jobIdFor(name: JobName, payload: JobPayload[JobName]): string {
-  if ('attributeId' in payload) return `${name}:${payload.attributeId}`;
-  if ('requestId' in payload) return `${name}:${payload.requestId}`;
-  return `${name}:${Date.now()}`;
+  if ('attributeId' in payload) return `${name}-${payload.attributeId}`;
+  if ('requestId' in payload) return `${name}-${payload.requestId}`;
+  return `${name}-${Date.now()}`;
 }
 
 const queuePromises = new Map<QueueName, Promise<Queue | null>>();

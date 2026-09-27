@@ -175,7 +175,7 @@ export function startSyncHost(opts: { redis: IORedis; log: Logger }): SyncHost {
       await system.add(
         SYNC_SYSTEM_JOBS.recover,
         {},
-        { jobId: `${SYNC_SYSTEM_JOBS.recover}:${Date.now()}` },
+        { jobId: `${SYNC_SYSTEM_JOBS.recover}-${Date.now()}` },
       );
     } catch (e) {
       opts.log.warn({ err: e }, 'could not schedule sync housekeeping');

@@ -91,7 +91,7 @@ void (async () => {
       await systemQueue.add(
         'index.build',
         { attributeId },
-        { jobId: `index.build:${attributeId}` },
+        { jobId: `index.build-${attributeId}` },
       );
     }
   } catch (e) {

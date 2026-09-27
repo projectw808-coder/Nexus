@@ -56,8 +56,10 @@ export const JOB_NAMES = {
   outbound: 'outbound.execute',
 } as const;
 
+/** BullMQ rejects a custom job id containing `:` (its own Redis keys use it as a delimiter) —
+ * `-` throughout every job id in this file and its callers. */
 export function syncJobId(job: Pick<SyncJob, 'connectionId' | 'resource' | 'trigger'>): string {
-  return `sync:${job.connectionId}:${job.resource}:${job.trigger}`;
+  return `sync-${job.connectionId}-${job.resource}-${job.trigger}`;
 }
 
 /** One entry point per queue; the hosts only parse the queue name. */

@@ -122,7 +122,7 @@ export function outboundWebhookEnqueue(bus: JobBus): OutboundWebhookEnqueue {
       } satisfies OutboundWebhookJobData,
       // The attempt is part of the id so a retry of the same delivery is a new job, while a
       // double dispatch of the same attempt collapses.
-      opts: { jobId: `owh:${delivery.deliveryId}:${delivery.attempts}`, lane: 'delta' },
+      opts: { jobId: `owh-${delivery.deliveryId}-${delivery.attempts}`, lane: 'delta' },
     });
   };
 }

@@ -86,7 +86,7 @@ export async function enqueueAutomationEventsForObjects(
       queue: QUEUES.automate,
       name: AUTOMATE_JOB,
       data: event,
-      opts: { jobId: `automate:${row.id}` },
+      opts: { jobId: `automate-${row.id}` },
     });
     // Second, independent consumer of the same event (ADR-022 decision 4): customer-facing
     // outbound webhooks. Never throws — a subscription problem cannot fail stage 6.

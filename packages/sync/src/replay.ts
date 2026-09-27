@@ -86,7 +86,7 @@ export async function replayDeadLetter(
     queue: row.queue as (typeof QUEUES)[keyof typeof QUEUES],
     name: row.jobName,
     data: row.payload,
-    opts: { jobId: `replay:${row.id}:${Date.now()}` },
+    opts: { jobId: `replay-${row.id}-${Date.now()}` },
   });
   await deps.runtime.withTenant(actor, (db) => markReplayed(db, row.id, job.jobId));
   return { jobId: job.jobId };

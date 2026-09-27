@@ -191,7 +191,7 @@ export async function runResourceSync(
           queue: input.trigger === 'BACKFILL' ? QUEUES.syncBackfill : QUEUES.syncDelta,
           name: JOB_NAMES.sync,
           data: continuationOf(input),
-          opts: { jobId: `${syncJobId(input)}:${Date.now()}`, lane },
+          opts: { jobId: `${syncJobId(input)}-${Date.now()}`, lane },
         });
         log.info('sync yielded after maxPages', {
           runId,
@@ -255,7 +255,7 @@ export async function runResourceSync(
         queue: input.trigger === 'BACKFILL' ? QUEUES.syncBackfill : QUEUES.syncDelta,
         name: JOB_NAMES.sync,
         data: continuationOf(input),
-        opts: { jobId: `${syncJobId(input)}:${Date.now()}`, lane, delayMs },
+        opts: { jobId: `${syncJobId(input)}-${Date.now()}`, lane, delayMs },
       });
       return { status: 'failed', runId, code: outcome.error.code, retry: true };
     }
