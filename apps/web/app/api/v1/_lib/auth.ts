@@ -53,7 +53,7 @@ export async function authenticate(
           'Send a workspace API key as `Authorization: Bearer nx_live_…`.',
           { remediation: KEY_REMEDIATION },
         ),
-        { 'www-authenticate': 'Bearer realm="Nexus REST v1"' },
+        { 'www-authenticate': 'Bearer realm="Pantera CRM REST v1"' },
       ),
     };
   }
@@ -66,7 +66,7 @@ export async function authenticate(
         problemFor('AUTH_EXPIRED', 'That API key is unknown, revoked or expired.', {
           remediation: KEY_REMEDIATION,
         }),
-        { 'www-authenticate': 'Bearer realm="Nexus REST v1", error="invalid_token"' },
+        { 'www-authenticate': 'Bearer realm="Pantera CRM REST v1", error="invalid_token"' },
       ),
     };
   }

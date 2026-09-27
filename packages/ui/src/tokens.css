@@ -23,7 +23,7 @@
   --ink-secondary: #52514e;
   --ink-muted: #6f6e69; /* 4.85:1 on the page surface (AA for small text) */
   --ink-inverse: #ffffff;
-  --ink-link: #1f63bd; /* 5.6:1 */
+  --ink-link: #c2410c; /* Pantera GP orange, darkened for 5.2:1 on white (raw #ff7817 is ~2.2:1) */
 
   /* ── status (reserved; always shipped with an icon + label, never colour alone) */
   --status-good: #0ca30c;
@@ -73,7 +73,9 @@
   --platform-mock: #898781;
 
   /* ── typography ───────────────────────────────────────────────────── */
-  --font-sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-sans:
+    var(--font-inter), system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    sans-serif;
   --font-mono: ui-monospace, 'Cascadia Mono', 'SF Mono', Menlo, Consolas, monospace;
   --text-xs: 12px;
   --text-sm: 13px;
@@ -131,18 +133,21 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
     color-scheme: dark;
-    --surface-page: #0d0d0d;
-    --surface-card: #1a1a19;
-    --surface-raised: #232322;
-    --border-hairline: rgba(255, 255, 255, 0.1);
-    --border-strong: rgba(255, 255, 255, 0.2);
-    --ink-primary: #ffffff;
-    --ink-secondary: #c3c2b7;
-    --ink-muted: #9c9a93; /* 5.6:1 on the raised surface */
-    --ink-inverse: #0b0b0b;
-    --ink-link: #5a9ff0; /* 5.7:1 */
+    /* Pantera GP palette: warm near-black + a single orange accent (matches pntgp.xyz). Every
+     * pair below is contrast-checked against the surface it's actually read on, not just the
+     * nearest one — see the a11y gate note in docs/PROGRESS.md's Phase 3 entry. */
+    --surface-page: #0a0908;
+    --surface-card: #151210;
+    --surface-raised: #1d1815;
+    --border-hairline: rgba(255, 220, 190, 0.1);
+    --border-strong: rgba(255, 220, 190, 0.2);
+    --ink-primary: #faf9f7;
+    --ink-secondary: #c7beb3; /* ~9.7:1 on --surface-raised */
+    --ink-muted: #8a8175; /* ~4.6:1 on --surface-raised (the darkest surface it's read on) */
+    --ink-inverse: #0a0908;
+    --ink-link: #ff7817; /* ~7.5:1 on --surface-page */
     --series-1: #3987e5;
-    --series-2: #d95926;
+    --series-2: #ff7817;
     --series-3: #199e70;
     --series-4: #c98500;
     --series-5: #d55181;
@@ -153,8 +158,8 @@
     --div-low: #3987e5;
     --div-mid: #383835;
     --div-high: #e66767;
-    --chart-grid: #2c2c2a;
-    --chart-baseline: #383835;
+    --chart-grid: #2a241f;
+    --chart-baseline: #3d362e;
     --platform-x: #ffffff;
     --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
     --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.5);
@@ -164,18 +169,18 @@
 /* Dark: explicit toggle, beats the OS. Same values as above — keep the two blocks in sync. */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --surface-page: #0d0d0d;
-  --surface-card: #1a1a19;
-  --surface-raised: #232322;
-  --border-hairline: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.2);
-  --ink-primary: #ffffff;
-  --ink-secondary: #c3c2b7;
-  --ink-muted: #9c9a93;
-  --ink-inverse: #0b0b0b;
-  --ink-link: #5a9ff0;
+  --surface-page: #0a0908;
+  --surface-card: #151210;
+  --surface-raised: #1d1815;
+  --border-hairline: rgba(255, 220, 190, 0.1);
+  --border-strong: rgba(255, 220, 190, 0.2);
+  --ink-primary: #faf9f7;
+  --ink-secondary: #c7beb3;
+  --ink-muted: #8a8175;
+  --ink-inverse: #0a0908;
+  --ink-link: #ff7817;
   --series-1: #3987e5;
-  --series-2: #d95926;
+  --series-2: #ff7817;
   --series-3: #199e70;
   --series-4: #c98500;
   --series-5: #d55181;
@@ -186,8 +191,8 @@
   --div-low: #3987e5;
   --div-mid: #383835;
   --div-high: #e66767;
-  --chart-grid: #2c2c2a;
-  --chart-baseline: #383835;
+  --chart-grid: #2a241f;
+  --chart-baseline: #3d362e;
   --platform-x: #ffffff;
   --elevation-1: 0 1px 2px rgba(0, 0, 0, 0.4);
   --elevation-2: 0 4px 16px rgba(0, 0, 0, 0.5);

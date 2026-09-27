@@ -79,7 +79,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           Join {preview.workspaceName}
         </h1>
         <p className="mt-1 text-ink-secondary">
-          You have been invited to work in this workspace on Nexus.
+          You have been invited to work in this workspace on Pantera CRM.
         </p>
       </div>
 

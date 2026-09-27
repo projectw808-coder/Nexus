@@ -1,12 +1,15 @@
 import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { isTheme, THEME_COOKIE, themeInitScript, type Theme } from '@nexus/ui';
 import { ThemeToggle } from '@/components/theme-toggle';
 import './globals.css';
 
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+
 export const metadata: Metadata = {
-  title: 'Nexus',
+  title: 'Pantera CRM',
   description: 'Multi-channel, API-native CRM with per-platform control.',
 };
 
@@ -18,7 +21,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const htmlProps = theme === 'system' ? {} : { 'data-theme': theme };
 
   return (
-    <html lang="en" suppressHydrationWarning {...htmlProps}>
+    <html lang="en" suppressHydrationWarning {...htmlProps} className={inter.variable}>
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
@@ -36,10 +39,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
               className="inline-block size-5 rounded-[6px] bg-ink"
               style={{ maskImage: 'none' }}
             />
-            <span className="text-[var(--text-md)] font-semibold tracking-tight">Nexus</span>
-            <span className="rounded-[var(--radius-pill)] border border-hairline px-2 text-[var(--text-xs)] text-ink-muted">
-              Phase 0
-            </span>
+            <span className="text-[var(--text-md)] font-semibold tracking-tight">Pantera CRM</span>
           </div>
           <ThemeToggle initial={theme} />
         </header>

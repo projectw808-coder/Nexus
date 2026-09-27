@@ -86,7 +86,7 @@ export function OutboundWebhooksView({
   return (
     <div className="flex flex-col gap-6">
       <p className="text-[var(--text-sm)] text-ink-secondary">
-        Nexus POSTs a JSON body to your endpoint when something happens in this workspace. Every
+        Pantera CRM POSTs a JSON body to your endpoint when something happens in this workspace. Every
         request is signed with HMAC-SHA256 and timestamped in{' '}
         <code className="font-mono text-[var(--text-xs)]">{catalog.signatureHeader}</code>:{' '}
         <code className="font-mono text-[var(--text-xs)]">
@@ -102,7 +102,7 @@ export function OutboundWebhooksView({
             Signing secret for {revealed.url || 'this endpoint'}
           </h2>
           <p className="text-[var(--text-sm)] text-warning">
-            Copy this now — you will not see it again. Nexus stores it encrypted and can never show
+            Copy this now — you will not see it again. Pantera CRM stores it encrypted and can never show
             it to you a second time.
           </p>
           <code className="select-all break-all rounded-[var(--radius-control)] border border-hairline bg-raised px-3 py-2 font-mono text-[var(--text-sm)]">
@@ -199,7 +199,7 @@ export function OutboundWebhooksView({
           <EmptyState
             compact
             title="No webhook endpoints yet"
-            description="Add an https endpoint above and Nexus will start posting signed events to it."
+            description="Add an https endpoint above and Pantera CRM will start posting signed events to it."
           />
         ) : (
           <div className="flex flex-col gap-3">

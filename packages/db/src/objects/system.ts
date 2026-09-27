@@ -34,6 +34,16 @@ export const DEAL_STAGES = [
   { id: 'lost', label: 'Lost', category: 'lost' },
 ] as const;
 
+/** Client pipeline stages — mirrors DEAL_STAGES' {id, label, category} shape so the board view,
+ * filters and the STATUS attribute type all work identically to Deal.stage. */
+export const CLIENT_STATUSES = [
+  { id: 'new', label: 'New', category: 'open' },
+  { id: 'contacted', label: 'Contacted', category: 'open' },
+  { id: 'qualified', label: 'Qualified', category: 'open' },
+  { id: 'won', label: 'Won', category: 'won' },
+  { id: 'lost', label: 'Lost', category: 'lost' },
+] as const;
+
 export const SYSTEM_OBJECTS: SeedObject[] = [
   {
     apiSlug: 'person',
@@ -130,6 +140,36 @@ export const SYSTEM_OBJECTS: SeedObject[] = [
       { apiSlug: 'attribution_creative', title: 'Creative', type: 'TEXT' },
       { apiSlug: 'attribution_landing', title: 'Landing page', type: 'TEXT' },
       { apiSlug: 'attribution_geo', title: 'Geo', type: 'TEXT' },
+    ],
+  },
+  {
+    apiSlug: 'client',
+    singular: 'Client',
+    plural: 'Clients',
+    icon: 'users',
+    attributes: [
+      { apiSlug: 'name', title: 'Name', type: 'TEXT', isRequired: true, isIndexed: true },
+      { apiSlug: 'email', title: 'Email', type: 'EMAIL', isIndexed: true },
+      { apiSlug: 'phone', title: 'Phone', type: 'PHONE' },
+      {
+        apiSlug: 'status',
+        title: 'Status',
+        type: 'STATUS',
+        config: { options: CLIENT_STATUSES.map((s) => ({ ...s })) },
+        isIndexed: true,
+      },
+      // Same free-form convention as Deal's attribution_campaign/attribution_source (Phase 8):
+      // per-tracker/per-channel naming has no shared vocabulary across customers, so these stay
+      // TEXT rather than a fixed SELECT list.
+      { apiSlug: 'campaign', title: 'Campaign', type: 'TEXT', isIndexed: true },
+      { apiSlug: 'source', title: 'Source', type: 'TEXT', isIndexed: true },
+      {
+        apiSlug: 'company',
+        title: 'Company',
+        type: 'RELATIONSHIP',
+        config: { targetObjectTypeId: '$company', multiple: false },
+      },
+      { apiSlug: 'owner', title: 'Owner', type: 'USER' },
     ],
   },
 ];
@@ -246,5 +286,37 @@ export async function seedSystemObjects(
       },
     });
   }
+
+  const existingClientPipeline = await db.list.findFirst({
+    where: { workspaceId, objectTypeId: ids['client']!, kind: 'PIPELINE', deletedAt: null },
+    select: { id: true },
+  });
+  const clientPipeline =
+    existingClientPipeline ??
+    (await db.list.create({
+      data: {
+        workspaceId,
+        objectTypeId: ids['client']!,
+        name: 'Client pipeline',
+        kind: 'PIPELINE',
+        settings: { stages: CLIENT_STATUSES.map((s) => s.id) },
+      },
+    }));
+  await db.listAttribute.upsert({
+    where: {
+      workspaceId_listId_apiSlug: { workspaceId, listId: clientPipeline.id, apiSlug: 'status' },
+    },
+    update: {},
+    create: {
+      workspaceId,
+      listId: clientPipeline.id,
+      apiSlug: 'status',
+      title: 'Status',
+      type: 'STATUS',
+      config: { options: CLIENT_STATUSES.map((s) => ({ ...s })) },
+      position: 0,
+    },
+  });
+
   return ids;
 }

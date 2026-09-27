@@ -82,7 +82,7 @@ export function AttributeInput({
         label={label}
         hint={
           hint ??
-          (isComputed(a.type) ? 'Computed by Nexus; not editable.' : 'Read-only for your role.')
+          (isComputed(a.type) ? 'Computed by Pantera CRM; not editable.' : 'Read-only for your role.')
         }
       >
         <div

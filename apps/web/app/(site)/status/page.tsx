@@ -47,8 +47,8 @@ export default async function StatusPage() {
       <section>
         <h1 className="text-[var(--text-xl)] font-semibold tracking-tight">Foundation</h1>
         <p className="mt-1 max-w-prose text-ink-secondary">
-          Phase 0 of Nexus: infrastructure, tracing, tokens. Everything below is live data from this
-          process.
+          Pantera CRM system status: infrastructure, tracing, tokens. Everything below is live
+          data from this process.
         </p>
       </section>
 

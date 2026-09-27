@@ -127,9 +127,9 @@ export function invitationMail(p: {
   role: Role;
 }) {
   const role = p.role.toLowerCase();
-  const text = `${p.inviter} invited you to join ${p.workspaceName} on Nexus as a ${role}.\n\nAccept the invitation:\n${p.link}\n\nThe link is valid for 7 days. If you were not expecting this, ignore this email.`;
-  const html = `<p>${escapeHtml(p.inviter)} invited you to join <strong>${escapeHtml(p.workspaceName)}</strong> on Nexus as a ${role}.</p>
+  const text = `${p.inviter} invited you to join ${p.workspaceName} on Pantera CRM as a ${role}.\n\nAccept the invitation:\n${p.link}\n\nThe link is valid for 7 days. If you were not expecting this, ignore this email.`;
+  const html = `<p>${escapeHtml(p.inviter)} invited you to join <strong>${escapeHtml(p.workspaceName)}</strong> on Pantera CRM as a ${role}.</p>
 <p><a href="${p.link}">Accept the invitation</a></p>
 <p style="color:#898781">The link is valid for 7 days. If you were not expecting this, ignore this email.</p>`;
-  return { to: p.to, subject: `Join ${p.workspaceName} on Nexus`, html, text, kind: 'invitation' };
+  return { to: p.to, subject: `Join ${p.workspaceName} on Pantera CRM`, html, text, kind: 'invitation' };
 }
