@@ -4,7 +4,7 @@ RUN corepack enable
 WORKDIR /repo
 
 FROM base AS deps
-COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json tsconfig.base.json ./
 COPY apps/worker/package.json apps/worker/
 COPY packages ./packages
 RUN pnpm install --frozen-lockfile --filter @nexus/worker...
