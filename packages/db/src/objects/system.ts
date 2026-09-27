@@ -163,6 +163,23 @@ export const SYSTEM_OBJECTS: SeedObject[] = [
       // TEXT rather than a fixed SELECT list.
       { apiSlug: 'campaign', title: 'Campaign', type: 'TEXT', isIndexed: true },
       { apiSlug: 'source', title: 'Source', type: 'TEXT', isIndexed: true },
+      // Captured from panteraai.co.uk's early-access form (REST v1) — option ids match that
+      // form's <select> values exactly, so no mapping layer sits between the two.
+      {
+        apiSlug: 'experience',
+        title: 'Trading experience',
+        type: 'SELECT',
+        config: {
+          options: [
+            { id: 'new', label: 'New to trading' },
+            { id: 'intermediate', label: '1–3 years' },
+            { id: 'experienced', label: '3+ years' },
+            { id: 'professional', label: 'Professional / institutional' },
+          ],
+        },
+        isIndexed: true,
+      },
+      { apiSlug: 'goals', title: 'Goals', type: 'TEXT' },
       {
         apiSlug: 'company',
         title: 'Company',
