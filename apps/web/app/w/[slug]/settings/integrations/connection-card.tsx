@@ -8,6 +8,7 @@ import { Meter } from '@/components/meter';
 import { Sparkline } from '@/components/sparkline';
 import { StatusPill } from '@/components/status-pill';
 import { isoOf } from '@/lib/format';
+import { PlatformIcon } from '@/lib/platform-icons';
 import { platformName } from '@/lib/platforms';
 import { useTRPC } from '@/lib/trpc-client';
 import type { RouterOutputs } from '@/lib/trpc-types';
@@ -65,16 +66,19 @@ export function ConnectionCard({
       className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-hairline bg-card p-4"
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <Link
-            href={`/w/${workspaceSlug}/settings/integrations/${connection.id}/overview`}
-            className="truncate text-[var(--text-sm)] font-medium text-ink hover:underline"
-          >
-            {connection.label}
-          </Link>
-          <span className="text-[var(--text-xs)] text-ink-muted">
-            {platformName(connection.platform)}
-          </span>
+        <div className="flex min-w-0 items-center gap-2.5">
+          <span className="shrink-0">{PlatformIcon[connection.platform]}</span>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <Link
+              href={`/w/${workspaceSlug}/settings/integrations/${connection.id}/overview`}
+              className="truncate text-[var(--text-sm)] font-medium text-ink hover:underline"
+            >
+              {connection.label}
+            </Link>
+            <span className="text-[var(--text-xs)] text-ink-muted">
+              {platformName(connection.platform)}
+            </span>
+          </div>
         </div>
         <StatusPill tone={STATUS_TONE[connection.status]}>
           {connection.status.toLowerCase().replace('_', ' ')}

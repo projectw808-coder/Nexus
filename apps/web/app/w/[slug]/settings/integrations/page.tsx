@@ -1,13 +1,12 @@
 import Link from 'next/link';
-import { LinkButton } from '@/components/button';
 import { EmptyState } from '@/components/empty-state';
 import { PermissionDenied } from '@/components/permission-denied';
 import { api } from '@/lib/api';
 import { isCode } from '@/lib/errors';
-import { platformName } from '@/lib/platforms';
 import { canManage } from '@/lib/roles';
 import { getWorkspace } from '@/lib/workspace';
 import { ConnectionCard } from './connection-card';
+import { ConnectPlatformCard } from './connect-platform-card';
 import { KeitaroConnectForm } from './keitaro-connect-form';
 
 export const dynamic = 'force-dynamic';
@@ -142,19 +141,9 @@ export default async function IntegrationsPage({
         </h2>
         {manages ? (
           <div className="flex flex-col gap-4">
-            <ul className="flex flex-wrap gap-2">
+            <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
               {connectUrls.map((c) => (
-                <li key={c.platform}>
-                  {c.url ? (
-                    <LinkButton href={c.url} variant="secondary" size="md" prefetch={false}>
-                      Connect {platformName(c.platform)}
-                    </LinkButton>
-                  ) : (
-                    <span className="text-[var(--text-sm)] text-ink-muted">
-                      {platformName(c.platform)}: not configured on this server
-                    </span>
-                  )}
-                </li>
+                <ConnectPlatformCard key={c.platform} platform={c.platform} url={c.url} />
               ))}
             </ul>
             <KeitaroConnectForm />

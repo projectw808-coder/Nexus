@@ -27,8 +27,27 @@ export const PLATFORM_SHORT: Record<string, string> = {
   MOCK: 'MK',
 };
 
+/** One-line explanation shown on the "Add a connection" card for each platform. */
+export const PLATFORM_DESCRIPTION: Record<string, string> = {
+  FACEBOOK: 'Sync Page messages, comments and lead ads into your inbox.',
+  INSTAGRAM: 'Bring DMs, comments and story mentions into your inbox.',
+  X: 'Track mentions, replies and DMs from your X account.',
+  LINKEDIN: 'Sync organization posts, comments and Lead Gen Form leads.',
+  TIKTOK: 'Import comments and lead events from your TikTok account.',
+  YOUTUBE: 'Sync comments and video engagement from your channel.',
+  GMAIL: 'Two-way sync of email threads with your clients.',
+  GOOGLE_CALENDAR: 'Sync meetings and events tied to your clients.',
+  GOOGLE_BUSINESS: 'Track reviews and messages from your Business Profile.',
+  KEITARO: 'Pull click and conversion tracking data from your campaigns.',
+  MOCK: 'A sandbox platform for testing syncs without a real account.',
+};
+
 export function platformName(p: string | null | undefined): string {
   return p ? (PLATFORM_NAME[p] ?? p) : '';
+}
+
+export function platformDescription(p: string | null | undefined): string {
+  return p ? (PLATFORM_DESCRIPTION[p] ?? '') : '';
 }
 
 export function platformShort(p: string | null | undefined): string {

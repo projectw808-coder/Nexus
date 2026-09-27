@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Button } from '@/components/button';
+import { PlatformIcon } from '@/lib/platform-icons';
 import { useTRPC } from '@/lib/trpc-client';
 
 /**
@@ -82,7 +83,9 @@ export function KeitaroConnectForm() {
         connect.mutate({ platform: 'KEITARO', baseUrl: baseUrl.trim(), apiKey: apiKey.trim() });
       }}
     >
-      <h3 className="text-[var(--text-sm)] font-semibold tracking-tight">Connect Keitaro</h3>
+      <h3 className="flex items-center gap-2 text-[var(--text-sm)] font-semibold tracking-tight">
+        {PlatformIcon.KEITARO} Connect Keitaro
+      </h3>
       <p className="text-[var(--text-xs)] text-ink-muted">
         Create a key in your tracker under Account → API keys, then paste its base URL and key here
         — Keitaro has no sign-in redirect.
