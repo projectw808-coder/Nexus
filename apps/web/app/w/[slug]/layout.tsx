@@ -108,7 +108,7 @@ export default async function WorkspaceLayout({
           </div>
         </div>
         <div className="flex flex-1">
-          <Rail slug={workspace.slug} initialCollapsed={railCollapsed} />
+          <Rail slug={workspace.slug} role={workspace.role} initialCollapsed={railCollapsed} />
           <div className="min-w-0 flex-1 px-6 py-6">{children}</div>
         </div>
       </div>

@@ -14,6 +14,7 @@ export const PROMPT_VERSIONS = {
   relationship_brief: 'v1',
   research_attribute: 'v1',
   reply_draft: 'v1',
+  assistant: 'v1',
 } as const;
 
 export type PromptTask = keyof typeof PROMPT_VERSIONS;
@@ -42,7 +43,7 @@ const JSON_RULE =
 function systemFor(task: PromptTask, role: string, shape: string): string {
   return [
     `# task: ${task}`,
-    `You are Nexus CRM's ${role}. You work only from the CONTEXT you are given.`,
+    `You are Pantera CRM's ${role}. You work only from the CONTEXT you are given.`,
     '',
     JSON_RULE,
     '',
@@ -244,4 +245,123 @@ export function replyDraftPrompt(input: {
       .filter(Boolean)
       .join('\n'),
   };
+}
+
+// ── AI assistant (admin-only: create/edit clients, integration guidance) ────
+
+/** A client record already in the workspace, given as context so the model can reference a real
+ * id instead of inventing one when the admin asks it to edit "that lead" or a name. */
+export type AssistantClientContext = {
+  id: string;
+  name: string;
+  email: string | null;
+  status: string | null;
+};
+
+export type AssistantIntegrationContext = {
+  platform: string;
+  connected: boolean;
+};
+
+export const assistantActionSchema = z.discriminatedUnion('tool', [
+  z.object({ tool: z.literal('none') }),
+  z.object({
+    tool: z.literal('create_client'),
+    name: z.string().min(1).max(200),
+    email: z.string().max(320).optional(),
+    phone: z.string().max(40).optional(),
+    status: z.string().max(60).optional(),
+    campaign: z.string().max(200).optional(),
+    source: z.string().max(200).optional(),
+  }),
+  z.object({
+    tool: z.literal('update_client'),
+    // Must be one of the ids given in CLIENTS context — the caller re-validates this and
+    // refuses an id it did not offer, so a hallucinated one is rejected, not silently applied.
+    clientId: z.string().min(1),
+    name: z.string().max(200).optional(),
+    email: z.string().max(320).optional(),
+    phone: z.string().max(40).optional(),
+    status: z.string().max(60).optional(),
+    campaign: z.string().max(200).optional(),
+    source: z.string().max(200).optional(),
+  }),
+]);
+export type AssistantAction = z.infer<typeof assistantActionSchema>;
+
+export const assistantResponseSchema = z.object({
+  reply: z.string().min(1).max(2000),
+  action: assistantActionSchema,
+});
+export type AssistantResponse = z.infer<typeof assistantResponseSchema>;
+
+export function assistantPrompt(input: {
+  message: string;
+  history: { role: 'user' | 'assistant'; content: string }[];
+  clients: AssistantClientContext[];
+  integrations: AssistantIntegrationContext[];
+}): Prompt {
+  const system = [
+    '# task: assistant',
+    "You are Pantera CRM's admin assistant. You help an OWNER or ADMIN create and edit Client",
+    'records, and answer questions about connecting integrations. You are not shown to other',
+    'roles, so you may discuss integration status freely.',
+    '',
+    JSON_RULE,
+    '',
+    'Shape:',
+    '{ "reply": string, "action": ' +
+      '{ "tool": "none" } | ' +
+      '{ "tool": "create_client", "name": string, "email"?, "phone"?, "status"?, "campaign"?, "source"? } | ' +
+      '{ "tool": "update_client", "clientId": string, "name"?, "email"?, "phone"?, "status"?, "campaign"?, "source"? } }',
+    '',
+    'Rules:',
+    '- Use "create_client" only when the admin clearly asked to add a new client, and "name" is',
+    '  the one piece you must always have (ask a follow-up question in "reply" and use tool',
+    '  "none" if it is missing).',
+    '- Use "update_client" only with a `clientId` copied EXACTLY from the CLIENTS list below —',
+    '  never invent one. If the admin refers to someone not in that list, say so in "reply" and',
+    '  use tool "none" rather than guessing an id.',
+    '- Only set the fields the admin actually asked to change; leave the rest out.',
+    '- "status" is free text but should match the pipeline stages already in use',
+    '  (new, contacted, qualified, won, lost) unless the admin asks for something else.',
+    '- For integration questions, answer from the INTEGRATIONS list below. You cannot connect a',
+    '  platform yourself (that needs the admin to complete an OAuth flow in Settings →',
+    '  Integrations) — tell them to go there, and mention what is already connected.',
+    '- Keep "reply" short and conversational. Never fabricate a client, a status, or a',
+    '  connection that is not in the context below.',
+  ].join('\n');
+
+  const clientLines = input.clients.length
+    ? input.clients
+        .map(
+          (c) =>
+            `id: ${c.id} | name: ${c.name} | email: ${c.email ?? '—'} | status: ${c.status ?? '—'}`,
+        )
+        .join('\n')
+    : '(no clients yet)';
+
+  const integrationLines = input.integrations.length
+    ? input.integrations
+        .map((i) => `${i.platform}: ${i.connected ? 'connected' : 'not connected'}`)
+        .join('\n')
+    : '(no integrations configured)';
+
+  const historyLines = input.history
+    .slice(-10)
+    .map((h) => `${h.role === 'user' ? 'Admin' : 'Assistant'}: ${h.content}`)
+    .join('\n');
+
+  const user = [
+    'CLIENTS (most recently updated first):',
+    clientLines,
+    '',
+    'INTEGRATIONS:',
+    integrationLines,
+    ...(historyLines ? ['', 'RECENT CONVERSATION:', historyLines] : []),
+    '',
+    `Admin: ${input.message}`,
+  ].join('\n');
+
+  return { system, user };
 }

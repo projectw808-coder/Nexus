@@ -32,6 +32,9 @@ export type { StructuredResult } from './structured.ts';
 // ── the prompt registry ──────────────────────────────────────────────────────
 export {
   PROMPT_VERSIONS,
+  assistantActionSchema,
+  assistantPrompt,
+  assistantResponseSchema,
   conversationSummaryPrompt,
   conversationSummarySchema,
   relationshipBriefPrompt,
@@ -43,6 +46,10 @@ export {
   researchSchemaFor,
 } from './prompts.ts';
 export type {
+  AssistantAction,
+  AssistantClientContext,
+  AssistantIntegrationContext,
+  AssistantResponse,
   ContextEvent,
   ConversationSummary,
   Prompt,
@@ -80,6 +87,10 @@ export type { AiDeps, AiInsightResult } from './context.ts';
 
 // ── §13.1 / §13.2 / §13.4 ────────────────────────────────────────────────────
 export { draftReply, generateRelationshipBrief, summarizeConversation } from './summary.ts';
+
+// ── admin AI assistant ───────────────────────────────────────────────────────
+export { runAssistant } from './assistant.ts';
+export type { AssistantResult } from './assistant.ts';
 
 // ── §13.3 ────────────────────────────────────────────────────────────────────
 export { runResearchAttribute, writeAiResearchValue } from './research-attribute.ts';

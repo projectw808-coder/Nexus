@@ -3,6 +3,8 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, type ReactNode } from 'react';
+import type { Role } from '@nexus/db';
+import { canManage } from '@/lib/roles';
 
 export const RAIL_COOKIE = 'nexus-rail';
 
@@ -75,9 +77,17 @@ const Icon = {
       <path d="M10 3v2M10 15v2M3 10h2M15 10h2M5.1 5.1l1.4 1.4M13.5 13.5l1.4 1.4M5.1 14.9l1.4-1.4M13.5 6.5l1.4-1.4" />
     </svg>
   ),
+  assistant: (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" {...stroke}>
+      <rect x="3.5" y="4.5" width="13" height="9" rx="2.5" />
+      <path d="M7 17l1.8-3.5M13 17l-1.8-3.5" />
+      <circle cx="7.5" cy="9" r="0.9" fill="currentColor" stroke="none" />
+      <circle cx="12.5" cy="9" r="0.9" fill="currentColor" stroke="none" />
+    </svg>
+  ),
 };
 
-function itemsFor(slug: string): RailItem[] {
+function itemsFor(slug: string, role: Role): RailItem[] {
   const base = `/w/${slug}`;
   return [
     { kind: 'link', label: 'Home', href: base, icon: Icon.home, exact: true },
@@ -94,6 +104,17 @@ function itemsFor(slug: string): RailItem[] {
       href: `${base}/settings/integrations`,
       icon: Icon.integrations,
     },
+    // Owner/admin only — mirrors the `AiAssistant` CASL subject (server/abilities.ts).
+    ...(canManage(role)
+      ? [
+          {
+            kind: 'link' as const,
+            label: 'AI assistant',
+            href: `${base}/assistant`,
+            icon: Icon.assistant,
+          },
+        ]
+      : []),
     { kind: 'link', label: 'Settings', href: `${base}/settings`, icon: Icon.settings },
   ];
 }
@@ -103,15 +124,25 @@ function itemsFor(slug: string): RailItem[] {
  * server renders the same width on the next request. Every destination is live as of Phase 11;
  * the `planned` variant stays so a future screen can be announced with the phase that ships it.
  */
-export function Rail({ slug, initialCollapsed }: { slug: string; initialCollapsed: boolean }) {
+export function Rail({
+  slug,
+  role,
+  initialCollapsed,
+}: {
+  slug: string;
+  role: Role;
+  initialCollapsed: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const pathname = usePathname();
-  const items = itemsFor(slug);
+  const items = itemsFor(slug, role);
   // Some hrefs nest inside others (Records vs. Clients' /records/client) — only the most
   // specific matching href should light up, or a nested route highlights two items at once.
   const activeHref = items
     .filter((i): i is Extract<RailItem, { kind: 'link' }> => i.kind === 'link')
-    .filter((i) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + '/')))
+    .filter((i) =>
+      i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + '/'),
+    )
     .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   const toggle = () => {

@@ -54,6 +54,10 @@ export type SubjectName =
   // Phase 11 — Reports (§12.2.E). One subject covers a dashboard and its widgets: a widget has
   // no meaning apart from the dashboard it sits on.
   | 'Dashboard'
+  // The AI assistant can create/edit records and speaks to integration credentials in its
+  // answers — owner/admin only. No blanket grant exists for it (unlike OutboundWebhook's
+  // carve-out from MANAGER's read-all), so every other role is denied by CASL's default deny.
+  | 'AiAssistant'
   | 'all';
 
 export type ConnectionSubject = { kind: 'Connection'; id: string };
@@ -102,7 +106,7 @@ export function defineAbilityFor(actor: Actor): AppAbility {
       // deciding a data-subject request stays with owners/admins (they only read the queue).
       can(['create', 'update'], 'ConsentRecord');
       cannot(['create', 'update', 'delete'], 'DataSubjectRequest');
-      cannot('read', ['ApiKey', 'ConnectionGrant', 'OutboundWebhook']);
+      cannot('read', ['ApiKey', 'ConnectionGrant', 'OutboundWebhook', 'AiAssistant']);
       // Phase 11 — a dashboard is a shared read of the whole workspace, so the tier that
       // manages lists and workflows manages dashboards and their widgets too.
       can(['create', 'update', 'delete'], 'Dashboard');

@@ -11,7 +11,8 @@ import { NexusError } from '@nexus/core';
 import type { TenantDb } from '@nexus/db';
 import type { PiiRedactionLevel } from './redact.ts';
 
-export type AiFeature = 'summary' | 'relationship_brief' | 'research' | 'reply_draft' | 'embedding';
+export type AiFeature =
+  'summary' | 'relationship_brief' | 'research' | 'reply_draft' | 'embedding' | 'assistant';
 
 export const AI_FEATURES: readonly AiFeature[] = [
   'summary',
