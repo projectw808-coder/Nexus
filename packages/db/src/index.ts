@@ -39,6 +39,8 @@ export type { ModelMeta, RelationMeta } from './generated-tenant-models.ts';
 // ── Auth.js adapter (non-tenant tables; lazily bound to the base client) ────
 export { authAdapter, createAuthAdapter } from './auth-adapter.ts';
 export type { AuthAdapter } from './auth-adapter.ts';
+export { findUserByEmailForCredentials, createUserWithPassword } from './credentials.ts';
+export type { CredentialsUser } from './credentials.ts';
 
 // ── Phase 2: the object graph ────────────────────────────────────────────────
 export { SYSTEM_OBJECTS, DEAL_STAGES, seedSystemObjects } from './objects/system.ts';

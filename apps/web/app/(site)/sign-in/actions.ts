@@ -3,38 +3,96 @@
 import { redirect } from 'next/navigation';
 import { AuthError } from 'next-auth';
 import { z } from 'zod';
+import { createUserWithPassword } from '@nexus/db';
 import {
   configuredProviders,
-  EMAIL_PROVIDER_ID,
+  CREDENTIALS_PROVIDER_ID,
   signIn,
   signOut,
   type OAuthProviderId,
 } from '@/auth';
+import { hashPassword } from '@/lib/password';
 import { safeCallbackUrl } from './callback-url';
 
 function signInUrl(params: Record<string, string>): string {
   return `/sign-in?${new URLSearchParams(params).toString()}`;
 }
 
-/**
- * Sends a magic link. On success the user lands on the "check your inbox" page with the address
- * they typed; on failure they return to the form with an `error` code the page can explain.
- */
-export async function sendMagicLink(formData: FormData): Promise<void> {
+function createAccountUrl(params: Record<string, string>): string {
+  return `/sign-in/create-account?${new URLSearchParams(params).toString()}`;
+}
+
+const credentialsSchema = z.object({
+  email: z.email(),
+  password: z.string().min(1),
+});
+
+export async function login(formData: FormData): Promise<void> {
   const callbackUrl = safeCallbackUrl(formData.get('callbackUrl'));
-  const raw = formData.get('email');
-  const parsed = z.email().safeParse(typeof raw === 'string' ? raw.trim() : '');
-  if (!parsed.success) redirect(signInUrl({ error: 'InvalidEmail', callbackUrl }));
-  const email = parsed.data.toLowerCase();
+  const parsed = credentialsSchema.safeParse({
+    email: formData.get('email'),
+    password: formData.get('password'),
+  });
+  if (!parsed.success) redirect(signInUrl({ error: 'CredentialsSignin', callbackUrl }));
+  const { email, password } = parsed.data;
 
   try {
-    // `redirect: false` — Auth.js's own success redirect would drop the address we want to echo.
-    await signIn(EMAIL_PROVIDER_ID, { email, redirectTo: callbackUrl, redirect: false });
+    await signIn(CREDENTIALS_PROVIDER_ID, {
+      email: email.trim().toLowerCase(),
+      password,
+      redirectTo: callbackUrl,
+      redirect: false,
+    });
   } catch (e) {
     if (e instanceof AuthError) redirect(signInUrl({ error: e.type, callbackUrl }));
     throw e;
   }
-  redirect(`/sign-in/check-email?${new URLSearchParams({ email }).toString()}`);
+  redirect(callbackUrl);
+}
+
+const createAccountSchema = z.object({
+  email: z.email(),
+  password: z.string().min(8),
+  name: z.string().trim().max(120).optional(),
+});
+
+export async function createAccount(formData: FormData): Promise<void> {
+  const callbackUrl = safeCallbackUrl(formData.get('callbackUrl'));
+  const raw = {
+    email: formData.get('email'),
+    password: formData.get('password'),
+    name: formData.get('name') || undefined,
+  };
+  const parsed = createAccountSchema.safeParse(raw);
+  if (!parsed.success) {
+    const tooShort = parsed.error.issues.some((i) => i.path[0] === 'password');
+    redirect(createAccountUrl({ error: tooShort ? 'WeakPassword' : 'CredentialsSignin', callbackUrl }));
+  }
+  const { email, password, name } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
+
+  try {
+    await createUserWithPassword({ email: normalizedEmail, passwordHash: await hashPassword(password), name });
+  } catch (e) {
+    // Prisma's unique-constraint violation on User.email.
+    if (e instanceof Object && 'code' in e && e.code === 'P2002') {
+      redirect(createAccountUrl({ error: 'EmailInUse', callbackUrl }));
+    }
+    throw e;
+  }
+
+  try {
+    await signIn(CREDENTIALS_PROVIDER_ID, {
+      email: normalizedEmail,
+      password,
+      redirectTo: callbackUrl,
+      redirect: false,
+    });
+  } catch (e) {
+    if (e instanceof AuthError) redirect(signInUrl({ error: e.type, callbackUrl }));
+    throw e;
+  }
+  redirect(callbackUrl);
 }
 
 /** Starts an OAuth sign-in. Bound with the provider id and callback URL by the page. */

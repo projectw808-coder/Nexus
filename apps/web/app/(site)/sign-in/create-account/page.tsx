@@ -1,16 +1,16 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { auth, configuredProviders, OAUTH_PROVIDER_LABELS } from '@/auth';
+import { auth } from '@/auth';
 import { SubmitButton } from '@/components/submit-button';
-import { login, signInWithProvider } from './actions';
-import { firstParam, safeCallbackUrl } from './callback-url';
-import { authErrorMessage } from './messages';
+import { createAccount } from '../actions';
+import { firstParam, safeCallbackUrl } from '../callback-url';
+import { authErrorMessage } from '../messages';
 
 export const dynamic = 'force-dynamic';
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
-export default async function SignInPage({ searchParams }: { searchParams: SearchParams }) {
+export default async function CreateAccountPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const callbackUrl = safeCallbackUrl(firstParam(params['callbackUrl']));
   const error = authErrorMessage(firstParam(params['error']));
@@ -18,13 +18,11 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
   const session = await auth();
   if (session?.user) redirect('/');
 
-  const providers = configuredProviders();
-
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col gap-6 py-8">
       <section>
-        <h1 className="text-[var(--text-xl)] font-semibold tracking-tight">Log in</h1>
-        <p className="mt-1 text-ink-secondary">Enter your email and password.</p>
+        <h1 className="text-[var(--text-xl)] font-semibold tracking-tight">Create an account</h1>
+        <p className="mt-1 text-ink-secondary">Set an email and a password to sign in with.</p>
       </section>
 
       {error && (
@@ -48,10 +46,22 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
       )}
 
       <form
-        action={login}
+        action={createAccount}
         className="flex flex-col gap-3 rounded-[var(--radius-card)] border border-hairline bg-card p-4"
       >
         <input type="hidden" name="callbackUrl" value={callbackUrl} />
+        <label htmlFor="name" className="text-[var(--text-sm)] font-medium">
+          Name (optional)
+        </label>
+        <input
+          id="name"
+          name="name"
+          type="text"
+          autoComplete="name"
+          autoFocus
+          placeholder="Ada Lovelace"
+          className="h-[var(--control-height)] w-full rounded-[var(--radius-control)] border border-hairline bg-page px-3 text-[var(--text-sm)] placeholder:text-ink-muted"
+        />
         <label htmlFor="email" className="text-[var(--text-sm)] font-medium">
           Email address
         </label>
@@ -61,7 +71,6 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
           type="email"
           inputMode="email"
           autoComplete="email"
-          autoFocus
           required
           placeholder="you@company.com"
           className="h-[var(--control-height)] w-full rounded-[var(--radius-control)] border border-hairline bg-page px-3 text-[var(--text-sm)] placeholder:text-ink-muted"
@@ -73,44 +82,24 @@ export default async function SignInPage({ searchParams }: { searchParams: Searc
           id="password"
           name="password"
           type="password"
-          autoComplete="current-password"
+          autoComplete="new-password"
+          minLength={8}
           required
-          placeholder="••••••••"
+          placeholder="At least 8 characters"
           className="h-[var(--control-height)] w-full rounded-[var(--radius-control)] border border-hairline bg-page px-3 text-[var(--text-sm)] placeholder:text-ink-muted"
         />
-        <SubmitButton pendingLabel="Logging in…">Log in</SubmitButton>
+        <SubmitButton pendingLabel="Creating account…">Create account</SubmitButton>
       </form>
 
       <p className="text-center text-[var(--text-sm)] text-ink-secondary">
-        No account?{' '}
+        Already have an account?{' '}
         <Link
-          href={`/sign-in/create-account?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          href={`/sign-in?callbackUrl=${encodeURIComponent(callbackUrl)}`}
           className="font-medium text-ink underline"
         >
-          Create one
+          Log in
         </Link>
       </p>
-
-      {providers.length > 0 && (
-        <section aria-labelledby="providers" className="flex flex-col gap-2">
-          <h2
-            id="providers"
-            className="text-[var(--text-xs)] font-medium uppercase tracking-wide text-ink-muted"
-          >
-            Or continue with
-          </h2>
-          {providers.map((id) => (
-            <form key={id} action={signInWithProvider.bind(null, id, callbackUrl)}>
-              <SubmitButton
-                variant="secondary"
-                pendingLabel={`Opening ${OAUTH_PROVIDER_LABELS[id]}…`}
-              >
-                Continue with {OAUTH_PROVIDER_LABELS[id]}
-              </SubmitButton>
-            </form>
-          ))}
-        </section>
-      )}
     </div>
   );
 }

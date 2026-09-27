@@ -54,6 +54,18 @@ const MESSAGES: Record<string, AuthErrorMessage> = {
     title: 'That does not look like an email address',
     body: 'Check the address and try again.',
   },
+  CredentialsSignin: {
+    title: 'That email or password is not right',
+    body: 'Check your details and try again.',
+  },
+  EmailInUse: {
+    title: 'That email already has an account',
+    body: 'Sign in instead, or use a different email.',
+  },
+  WeakPassword: {
+    title: 'That password is too short',
+    body: 'Use at least 8 characters.',
+  },
 };
 
 const DEFAULT: AuthErrorMessage = {
