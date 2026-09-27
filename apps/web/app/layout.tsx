@@ -34,16 +34,13 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         </a>
         <header className="flex h-12 items-center justify-between border-b border-hairline px-4">
           <div className="flex items-center gap-2">
-            <svg aria-hidden width="20" height="20" viewBox="0 0 24 24" className="text-link">
-              <path
-                d="M12 3.5 20 8v8l-8 4.5L4 16V8z"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinejoin="round"
-              />
-              <circle cx="12" cy="12" r="2.4" fill="currentColor" />
-            </svg>
+            <span
+              aria-hidden
+              className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-link text-[13px] font-extrabold leading-none text-ink-inverse"
+              style={{ fontFamily: 'var(--font-sans)' }}
+            >
+              P
+            </span>
             <span className="text-[var(--text-md)] font-bold tracking-tight">Pantera CRM</span>
           </div>
           <ThemeToggle initial={theme} />
