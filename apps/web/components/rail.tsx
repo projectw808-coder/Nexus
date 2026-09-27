@@ -35,6 +35,14 @@ const Icon = {
       <path d="M3 8h14M8 8v8" />
     </svg>
   ),
+  clients: (
+    <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" {...stroke}>
+      <circle cx="7.5" cy="7" r="2.5" />
+      <path d="M2.5 17v-1.5A3.5 3.5 0 0 1 6 12h3a3.5 3.5 0 0 1 3.5 3.5V17" />
+      <circle cx="14" cy="7.5" r="2" />
+      <path d="M13 12.2c1.9.2 3.5 1.7 3.5 3.6V17" />
+    </svg>
+  ),
   lists: (
     <svg aria-hidden width="18" height="18" viewBox="0 0 20 20" {...stroke}>
       <path d="M7 5h10M7 10h10M7 15h10M3.5 5h.01M3.5 10h.01M3.5 15h.01" />
@@ -73,6 +81,7 @@ function itemsFor(slug: string): RailItem[] {
   const base = `/w/${slug}`;
   return [
     { kind: 'link', label: 'Home', href: base, icon: Icon.home, exact: true },
+    { kind: 'link', label: 'Clients', href: `${base}/records/client`, icon: Icon.clients },
     { kind: 'link', label: 'Inbox', href: `${base}/inbox`, icon: Icon.inbox },
     { kind: 'link', label: 'Records', href: `${base}/records`, icon: Icon.records },
     { kind: 'link', label: 'Lists', href: `${base}/lists`, icon: Icon.lists },
@@ -98,6 +107,12 @@ export function Rail({ slug, initialCollapsed }: { slug: string; initialCollapse
   const [collapsed, setCollapsed] = useState(initialCollapsed);
   const pathname = usePathname();
   const items = itemsFor(slug);
+  // Some hrefs nest inside others (Records vs. Clients' /records/client) — only the most
+  // specific matching href should light up, or a nested route highlights two items at once.
+  const activeHref = items
+    .filter((i): i is Extract<RailItem, { kind: 'link' }> => i.kind === 'link')
+    .filter((i) => (i.exact ? pathname === i.href : pathname === i.href || pathname.startsWith(i.href + '/')))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
 
   const toggle = () => {
     const next = !collapsed;
@@ -118,9 +133,7 @@ export function Rail({ slug, initialCollapsed }: { slug: string; initialCollapse
             'flex h-9 items-center gap-3 rounded-[var(--radius-control)] px-2.5 text-[var(--text-sm)] ' +
             (collapsed ? 'justify-center' : '');
           if (item.kind === 'link') {
-            const active = item.exact
-              ? pathname === item.href
-              : pathname === item.href || pathname.startsWith(item.href + '/');
+            const active = item.href === activeHref;
             return (
               <li key={item.label}>
                 <Link
