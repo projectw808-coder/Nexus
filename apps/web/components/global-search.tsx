@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import { CONTROL_CLASS } from '@/components/field';
+import { Search } from 'lucide-react';
 
 /**
  * Workspace-bar search (§11.1 `search`): a GET form to `/w/[slug]/search?q=`, so it works
  * without JavaScript and every result page is a link. `/` focuses it from anywhere outside a
- * text field. The ⌘K palette is Phase 3.
+ * text field; ⌘K opens the command palette.
  */
 export function GlobalSearch({ slug, initialQuery }: { slug: string; initialQuery?: string }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -39,33 +39,31 @@ export function GlobalSearch({ slug, initialQuery }: { slug: string; initialQuer
       className="hidden min-w-0 flex-1 items-center justify-center md:flex"
     >
       <label htmlFor="global-search" className="sr-only">
-        Search records
+        Search clients and records
       </label>
-      <div className="relative w-full max-w-md">
-        <svg
+      <div className="relative w-full max-w-[566px]">
+        <Search
           aria-hidden
-          width="14"
-          height="14"
-          viewBox="0 0 20 20"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
-        >
-          <circle cx="9" cy="9" r="5.5" />
-          <path d="M13 13l4 4" strokeLinecap="round" />
-        </svg>
+          size={17}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-muted"
+        />
         <input
           ref={ref}
           id="global-search"
           name="q"
           type="search"
           defaultValue={initialQuery ?? ''}
-          placeholder="Search records…  /"
+          placeholder="Search clients, phone, email, notes..."
           autoComplete="off"
           maxLength={200}
-          className={`${CONTROL_CLASS} h-8 pl-8 text-[var(--text-sm)]`}
+          className="h-[41px] w-full rounded-[7px] border border-strong bg-raised pl-11 pr-16 text-[13px] text-ink placeholder:text-ink-muted focus:border-link focus:outline-none"
         />
+        <kbd
+          aria-hidden
+          className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded-[5px] border border-strong px-1.5 py-0.5 font-sans text-[11px] text-ink-muted"
+        >
+          ⌘ K
+        </kbd>
       </div>
     </form>
   );

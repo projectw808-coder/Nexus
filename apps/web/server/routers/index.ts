@@ -4,6 +4,7 @@ import { apiKeyRouter } from './api-keys';
 import { assistantRouter } from './assistant';
 import { auditRouter } from './audit';
 import { cannedReplyRouter } from './canned-replies';
+import { clientWorkspaceRouter } from './client-workspace';
 import { complianceNoteRouter, dataSubjectRequestRouter } from './compliance';
 import { consentRouter } from './consent';
 import { connectionGrantRouter } from './connection-grants';
@@ -75,6 +76,8 @@ export const appRouter = router({
   ai: aiRouter,
   // Phase 12 — the admin AI assistant (owner/admin only)
   assistant: assistantRouter,
+  // Pantera CRM's Clients workspace
+  clientWorkspace: clientWorkspaceRouter,
   // Phase 11 — the compliance layer (§5.5, ADR-022)
   consent: consentRouter,
   dataSubjectRequest: dataSubjectRequestRouter,

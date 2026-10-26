@@ -96,14 +96,65 @@ describe('system objects', () => {
     const n = await db.runtime.withSystem((s) =>
       s.objectType.count({ where: { workspaceId: old.id, isSystem: true } }),
     );
-    expect(n).toBe(3);
+    expect(n).toBe(4);
+  });
+
+  it('upgrades older client statuses: appends the new ones, retires the old ones nobody uses', async () => {
+    const u = await db.prisma.user.create({ data: { email: 'st@acme.test', name: 'St' } });
+    const w = await db.tenancy.createWorkspace({ name: 'Statuses', slug: 'statuses', ownerUserId: u.id });
+    const a: Actor = { workspaceId: w.id, userId: u.id, role: 'OWNER', grants: [] };
+    const old = ['new', 'contacted', 'qualified', 'won', 'lost'].map((id) => ({ id, label: id }));
+    const { clientId, statusId, pipelineId } = await db.runtime.withSystem(async (s) => {
+      const client = await s.objectType.findFirstOrThrow({
+        where: { workspaceId: w.id, apiSlug: 'client' },
+      });
+      const status = await s.attribute.findFirstOrThrow({
+        where: { workspaceId: w.id, objectTypeId: client.id, apiSlug: 'status' },
+      });
+      await s.attribute.update({ where: { id: status.id }, data: { config: { options: old } } });
+      const pipeline = await s.list.findFirstOrThrow({
+        where: { workspaceId: w.id, objectTypeId: client.id, kind: 'PIPELINE' },
+      });
+      await s.list.update({
+        where: { id: pipeline.id },
+        data: { settings: { stages: old.map((o) => o.id) } },
+      });
+      return { clientId: client.id, statusId: status.id, pipelineId: pipeline.id };
+    });
+    // One record still on "won": that status has to survive the upgrade.
+    await db.runtime.withTenant(a, async (t) =>
+      createRecord(t, a, {
+        objectTypeId: clientId,
+        attributes: await loadAttributes(t, clientId),
+        input: { name: 'Kept', status: 'won' },
+      }),
+    );
+
+    await db.tenancy.ensureSystemObjects(w.id);
+
+    const [config, settings] = await db.runtime.withSystem(async (s) => [
+      (await s.attribute.findUniqueOrThrow({ where: { id: statusId } })).config,
+      (await s.list.findUniqueOrThrow({ where: { id: pipelineId } })).settings,
+    ]);
+    const ids = (config as { options: { id: string }[] }).options.map((o) => o.id);
+    expect(ids.slice(0, 3)).toEqual(['new', 'contacted', 'won']);
+    expect(ids).not.toContain('qualified');
+    expect(ids).not.toContain('lost');
+    expect(ids).toEqual(expect.arrayContaining(['interested', 'kyc_pending', 'active_client']));
+    expect((settings as { stages: string[] }).stages).toEqual(ids);
+    // Idempotent: a second pass changes nothing.
+    await db.tenancy.ensureSystemObjects(w.id);
+    const again = await db.runtime.withSystem(
+      async (s) => (await s.attribute.findUniqueOrThrow({ where: { id: statusId } })).config,
+    );
+    expect((again as { options: { id: string }[] }).options.map((o) => o.id)).toEqual(ids);
   });
 
   it('seeds Person, Company, Deal and a Sales pipeline into a new workspace', async () => {
     const types = await db.runtime.withTenant(actor, (t) =>
       t.objectType.findMany({ where: { isSystem: true }, orderBy: { apiSlug: 'asc' } }),
     );
-    expect(types.map((x) => x.apiSlug)).toEqual(['company', 'deal', 'person']);
+    expect(types.map((x) => x.apiSlug)).toEqual(['client', 'company', 'deal', 'person']);
     const person = types.find((x) => x.apiSlug === 'person')!;
     const personAttrs = await db.runtime.withTenant(actor, (t) => loadAttributes(t, person.id));
     expect(personAttrs.filter((a) => a.isSystem).map((a) => a.apiSlug)).toEqual(
@@ -112,7 +163,7 @@ describe('system objects', () => {
     const lists = await db.runtime.withTenant(actor, (t) =>
       t.list.findMany({ where: { kind: 'PIPELINE' } }),
     );
-    expect(lists.map((l) => l.name)).toEqual(['Sales pipeline']);
+    expect(lists.map((l) => l.name)).toEqual(['Sales pipeline', 'Client pipeline']);
   });
 });
 

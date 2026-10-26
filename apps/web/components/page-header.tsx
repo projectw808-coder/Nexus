@@ -13,7 +13,8 @@ export function PageHeader({
   actions?: ReactNode;
   as?: 'h1' | 'h2';
 }) {
-  const size = Heading === 'h1' ? 'text-[var(--text-xl)]' : 'text-[var(--text-lg)]';
+  // `length:` matters: a bare `text-[var(--…)]` is read by Tailwind v4 as a colour, not a size.
+  const size = Heading === 'h1' ? 'text-[length:var(--text-xl)]' : 'text-[length:var(--text-lg)]';
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
       <div className="min-w-0">

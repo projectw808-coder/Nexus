@@ -1,11 +1,14 @@
+import { Bell } from 'lucide-react';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { isTheme, THEME_COOKIE, type Theme } from '@nexus/ui';
+import { BrandMark } from '@/components/brand-mark';
 import { CommandPalette, type PaletteCommand } from '@/components/command-palette';
 import { GlobalSearch } from '@/components/global-search';
+import { Rail } from '@/components/rail';
+import { UserMenu } from '@/components/user-menu';
 import { TrpcProvider } from '@/lib/trpc-client';
-import { Rail, RAIL_COOKIE } from '@/components/rail';
-import { SignOutButton } from '@/components/sign-out-button';
-import { WorkspaceSwitcher } from '@/components/workspace-switcher';
 import { api } from '@/lib/api';
 import { requireSessionUser } from '@/lib/session';
 import { getWorkspace } from '@/lib/workspace';
@@ -13,9 +16,9 @@ import { getWorkspace } from '@/lib/workspace';
 export const dynamic = 'force-dynamic';
 
 /**
- * The app shell (§12.1): a slim workspace bar under the global header, the left rail and the
- * content pane. The global header (brand + theme toggle) lives in app/layout.tsx and is not
- * repeated here. Negative margins let the shell fill the width and height of `<main>`.
+ * The app shell (§12.1): one 56px top bar (brand, global search, follow-up bell, account menu),
+ * the grouped left navigation and the content pane, filling the viewport. Screens that want the
+ * whole pane edge to edge (Clients) cancel the pane's padding themselves.
  */
 export default async function WorkspaceLayout({
   children,
@@ -28,16 +31,35 @@ export default async function WorkspaceLayout({
   const user = await requireSessionUser();
   const workspace = await getWorkspace(slug);
   const client = await api(workspace.slug);
-  const [workspaces, cookieStore, objectTypes, lists] = await Promise.all([
+  const [workspaces, cookieStore, objectTypes, lists, counts] = await Promise.all([
     (await api()).workspace.list(),
     cookies(),
     client.objectType.list().catch(() => []),
     client.list.list().catch(() => []),
+    client.clientWorkspace
+      .counts()
+      .catch(() => ({ newLeads: 0, followUpsDue: 0, overdue: 0, unread: 0 })),
   ]);
-  const railCollapsed = cookieStore.get(RAIL_COOKIE)?.value === 'collapsed';
+  const cookieTheme = cookieStore.get(THEME_COOKIE)?.value;
+  const theme: Theme = isTheme(cookieTheme) ? cookieTheme : 'system';
   const base = `/w/${workspace.slug}`;
+  const clientTypeId = objectTypes.find((o) => o.apiSlug === 'client')?.id;
+  const clientPipeline = lists.find(
+    (l) => l.kind === 'PIPELINE' && l.objectTypeId === clientTypeId,
+  );
+  const pipelineHref = clientPipeline ? `${base}/lists/${clientPipeline.id}` : `${base}/lists`;
   const commands: PaletteCommand[] = [
-    { id: 'home', label: 'Home', href: base, group: 'Go to' },
+    { id: 'home', label: 'Dashboard', href: base, group: 'Go to' },
+    { id: 'clients', label: 'Clients', href: `${base}/clients`, group: 'Go to' },
+    { id: 'pipeline', label: 'Pipeline', href: pipelineHref, group: 'Go to' },
+    {
+      id: 'follow-ups',
+      label: 'Tasks & Follow-ups',
+      href: `${base}/follow-ups`,
+      group: 'Go to',
+    },
+    { id: 'team', label: 'Team Performance', href: `${base}/team`, group: 'Go to' },
+    { id: 'campaigns', label: 'Campaigns', href: `${base}/campaigns`, group: 'Go to' },
     { id: 'records', label: 'Records', href: `${base}/records`, group: 'Go to' },
     ...objectTypes.map((o) => ({
       id: `obj:${o.id}`,
@@ -81,35 +103,57 @@ export default async function WorkspaceLayout({
   return (
     <TrpcProvider slug={workspace.slug}>
       <CommandPalette commands={commands} />
-      <div className="-mx-4 -my-8 flex min-h-[calc(100dvh-3rem)] flex-col">
-        <div className="flex h-11 shrink-0 items-center justify-between gap-4 border-b border-hairline px-3">
-          <WorkspaceSwitcher
-            current={{ name: workspace.name, slug: workspace.slug, role: workspace.role }}
-            workspaces={workspaces.map((w) => ({
-              id: w.id,
-              name: w.name,
-              slug: w.slug,
-              role: w.role,
-            }))}
-          />
+      <div className="flex h-dvh flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between gap-5 border-b border-hairline bg-card px-4">
+          <Link
+            href={base}
+            className="w-auto shrink-0 rounded-[var(--radius-control)] lg:w-[218px]"
+          >
+            <BrandMark />
+          </Link>
           <GlobalSearch slug={workspace.slug} />
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="hidden min-w-0 text-right sm:block">
-              <p className="truncate text-[var(--text-sm)] font-medium leading-tight">
-                {user.name ?? user.email}
-              </p>
-              {user.name ? (
-                <p className="truncate text-[var(--text-xs)] leading-tight text-ink-muted">
-                  {user.email}
-                </p>
+          <div className="flex shrink-0 items-center gap-4">
+            <Link
+              href={`${base}/follow-ups`}
+              aria-label={
+                counts.overdue > 0
+                  ? `Notifications: ${counts.overdue} overdue follow-up${counts.overdue === 1 ? '' : 's'}`
+                  : 'Notifications: nothing overdue'
+              }
+              className="relative grid size-9 place-items-center rounded-[var(--radius-control)] text-ink-secondary hover:bg-raised hover:text-ink"
+            >
+              <Bell aria-hidden size={19} />
+              {counts.overdue > 0 ? (
+                <span
+                  aria-hidden
+                  className="absolute right-0.5 top-0 grid min-w-[17px] place-items-center rounded-full bg-[#d92d43] px-1 text-[10px] font-semibold leading-[17px] text-white"
+                >
+                  {counts.overdue > 99 ? '99+' : counts.overdue}
+                </span>
               ) : null}
-            </div>
-            <SignOutButton />
+            </Link>
+            <UserMenu
+              user={{ name: user.name, email: user.email }}
+              role={workspace.role}
+              currentSlug={workspace.slug}
+              workspaces={workspaces.map((w) => ({
+                id: w.id,
+                name: w.name,
+                slug: w.slug,
+                role: w.role,
+              }))}
+              theme={theme}
+            />
           </div>
-        </div>
-        <div className="flex flex-1">
-          <Rail slug={workspace.slug} role={workspace.role} initialCollapsed={railCollapsed} />
-          <div className="min-w-0 flex-1 px-6 py-6">{children}</div>
+        </header>
+        <div className="flex min-h-0 flex-1">
+          <Rail
+            slug={workspace.slug}
+            role={workspace.role}
+            counts={counts}
+            pipelineHref={pipelineHref}
+          />
+          <div className="min-w-0 flex-1 overflow-auto px-6 py-6">{children}</div>
         </div>
       </div>
     </TrpcProvider>

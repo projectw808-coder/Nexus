@@ -39,9 +39,29 @@ export const DEAL_STAGES = [
 export const CLIENT_STATUSES = [
   { id: 'new', label: 'New', category: 'open' },
   { id: 'contacted', label: 'Contacted', category: 'open' },
-  { id: 'qualified', label: 'Qualified', category: 'open' },
-  { id: 'won', label: 'Won', category: 'won' },
-  { id: 'lost', label: 'Lost', category: 'lost' },
+  { id: 'interested', label: 'Interested', category: 'open' },
+  { id: 'callback', label: 'Callback', category: 'open' },
+  { id: 'no_answer', label: 'No Answer', category: 'open' },
+  { id: 'kyc_pending', label: 'KYC Pending', category: 'open' },
+  { id: 'kyc_completed', label: 'KYC Completed', category: 'open' },
+  { id: 'active_client', label: 'Active Client', category: 'won' },
+  { id: 'not_interested', label: 'Not Interested', category: 'lost' },
+  { id: 'invalid_lead', label: 'Invalid Lead', category: 'lost' },
+] as const;
+
+/** Earlier client statuses, retired from workspaces that never used them (see reconcile). */
+const RETIRED_CLIENT_STATUS_IDS = new Set(['qualified', 'won', 'lost']);
+
+export const CLIENT_PRIORITIES = [
+  { id: 'high', label: 'High' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'low', label: 'Low' },
+] as const;
+
+export const KYC_STATUSES = [
+  { id: 'not_started', label: 'Not started' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'completed', label: 'Completed' },
 ] as const;
 
 export const SYSTEM_OBJECTS: SeedObject[] = [
@@ -180,6 +200,25 @@ export const SYSTEM_OBJECTS: SeedObject[] = [
         isIndexed: true,
       },
       { apiSlug: 'goals', title: 'Goals', type: 'TEXT' },
+      {
+        apiSlug: 'priority',
+        title: 'Priority',
+        type: 'SELECT',
+        config: { options: CLIENT_PRIORITIES.map((p) => ({ ...p })) },
+        isIndexed: true,
+      },
+      // ISO 3166-1 alpha-2 (e.g. "GB"); the Clients view falls back to the phone's dial code.
+      { apiSlug: 'country', title: 'Country', type: 'TEXT', isIndexed: true },
+      { apiSlug: 'next_follow_up', title: 'Next follow-up', type: 'DATETIME', isIndexed: true },
+      { apiSlug: 'last_contact', title: 'Last contact', type: 'DATETIME', isIndexed: true },
+      {
+        apiSlug: 'kyc_status',
+        title: 'KYC status',
+        type: 'SELECT',
+        config: { options: KYC_STATUSES.map((k) => ({ ...k })) },
+      },
+      // Free-form, comma-separated: a SELECT would need an admin to add every new tag first.
+      { apiSlug: 'tags', title: 'Tags', type: 'TEXT' },
       {
         apiSlug: 'company',
         title: 'Company',
@@ -335,5 +374,111 @@ export async function seedSystemObjects(
     },
   });
 
+  await reconcileClientStatuses(db, workspaceId, ids['client']!, clientPipeline.id);
+
   return ids;
+}
+
+type StatusOption = { id: string; label: string; category?: string };
+
+/** Keeps the existing order (a workspace may have reordered), drops `drop`, appends what's new. */
+function reconcileOptions(existing: unknown, drop: ReadonlySet<string>): StatusOption[] | null {
+  const current = Array.isArray(existing) ? (existing as StatusOption[]) : [];
+  const kept = current.filter((o) => !drop.has(o.id));
+  const have = new Set(kept.map((o) => o.id));
+  const added = CLIENT_STATUSES.filter((s) => !have.has(s.id)).map((s) => ({ ...s }));
+  if (!added.length && kept.length === current.length) return null;
+  return [...kept, ...added];
+}
+
+const optionsOf = (config: unknown): unknown =>
+  config && typeof config === 'object' ? (config as Record<string, unknown>)['options'] : undefined;
+
+/**
+ * The seed's upserts never touch an existing row, so a workspace seeded with the first client
+ * statuses would keep them forever. Append the current ones, and retire the earlier ones only
+ * where no record or board entry still uses them — a status in use is never pulled out from under
+ * its records. Cheap on the common path: one read, no writes once a workspace is up to date.
+ */
+async function reconcileClientStatuses(
+  db: SystemDb,
+  workspaceId: string,
+  clientTypeId: string,
+  pipelineId: string,
+): Promise<void> {
+  const attr = await db.attribute.findFirst({
+    where: { workspaceId, objectTypeId: clientTypeId, apiSlug: 'status', deletedAt: null },
+    select: { id: true, config: true },
+  });
+  const pipeline = await db.list.findFirst({
+    where: { id: pipelineId },
+    select: { settings: true },
+  });
+  const listAttr = await db.listAttribute.findFirst({
+    where: { workspaceId, listId: pipelineId, apiSlug: 'status' },
+    select: { id: true, config: true },
+  });
+
+  const present = new Set<string>();
+  for (const o of [optionsOf(attr?.config), optionsOf(listAttr?.config)]) {
+    if (Array.isArray(o)) for (const opt of o as StatusOption[]) present.add(opt.id);
+  }
+  const settings = (pipeline?.settings ?? {}) as Record<string, unknown>;
+  const stages = Array.isArray(settings['stages']) ? (settings['stages'] as string[]) : [];
+  for (const s of stages) present.add(s);
+
+  const drop = new Set<string>();
+  for (const id of RETIRED_CLIENT_STATUS_IDS) {
+    if (!present.has(id)) continue;
+    const [records, entries] = await Promise.all([
+      attr
+        ? db.record.count({
+            where: {
+              workspaceId,
+              objectTypeId: clientTypeId,
+              deletedAt: null,
+              values: { path: [attr.id], equals: id },
+            },
+          })
+        : 0,
+      db.listEntry.count({ where: { listId: pipelineId, stage: id, deletedAt: null } }),
+    ]);
+    if (records === 0 && entries === 0) drop.add(id);
+  }
+
+  if (attr) {
+    const next = reconcileOptions(optionsOf(attr.config), drop);
+    if (next)
+      await db.attribute.update({
+        where: { id: attr.id },
+        data: {
+          config: {
+            ...(attr.config as Record<string, unknown>),
+            options: next,
+          } as Prisma.InputJsonValue,
+        },
+      });
+  }
+  if (listAttr) {
+    const next = reconcileOptions(optionsOf(listAttr.config), drop);
+    if (next)
+      await db.listAttribute.update({
+        where: { id: listAttr.id },
+        data: {
+          config: {
+            ...(listAttr.config as Record<string, unknown>),
+            options: next,
+          } as Prisma.InputJsonValue,
+        },
+      });
+  }
+  const keptStages = stages.filter((s) => !drop.has(s));
+  const addedStages = CLIENT_STATUSES.map((s) => s.id).filter((s) => !keptStages.includes(s));
+  if (addedStages.length || keptStages.length !== stages.length)
+    await db.list.update({
+      where: { id: pipelineId },
+      data: {
+        settings: { ...settings, stages: [...keptStages, ...addedStages] } as Prisma.InputJsonValue,
+      },
+    });
 }

@@ -1,12 +1,19 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Noto_Color_Emoji } from 'next/font/google';
 import { cookies } from 'next/headers';
 import type { ReactNode } from 'react';
 import { isTheme, THEME_COOKIE, themeInitScript, type Theme } from '@nexus/ui';
-import { ThemeToggle } from '@/components/theme-toggle';
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+// Country flags only: Windows has no colour flag glyphs, and Google serves this font split by
+// unicode-range, so a page downloads just the flag ranges it actually renders.
+const emoji = Noto_Color_Emoji({
+  weight: '400',
+  subsets: ['emoji'],
+  variable: '--font-emoji',
+  preload: false,
+});
 
 export const metadata: Metadata = {
   title: 'Pantera CRM',
@@ -21,7 +28,12 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   const htmlProps = theme === 'system' ? {} : { 'data-theme': theme };
 
   return (
-    <html lang="en" suppressHydrationWarning {...htmlProps} className={inter.variable}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      {...htmlProps}
+      className={`${inter.variable} ${emoji.variable}`}
+    >
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
@@ -32,21 +44,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         >
           Skip to content
         </a>
-        <header className="flex h-12 items-center justify-between border-b border-hairline px-4">
-          <div className="flex items-center gap-2">
-            <span
-              aria-hidden
-              className="flex size-6 shrink-0 items-center justify-center rounded-[7px] bg-link text-[13px] font-extrabold leading-none text-ink-inverse"
-              style={{ fontFamily: 'var(--font-sans)' }}
-            >
-              P
-            </span>
-            <span className="text-[var(--text-md)] font-bold tracking-tight">Pantera CRM</span>
-          </div>
-          <ThemeToggle initial={theme} />
-        </header>
-        {/* Workspace screens (the inbox, tables, boards) use the full width; app/(site) re-adds the measure. */}
-        <main id="main" className="mx-auto w-full px-4 py-8">
+        {/* Workspace screens draw their own top bar and fill the viewport; app/(site) adds the
+            brand header and the reading measure back for everything outside a workspace. */}
+        <main id="main" className="w-full">
           {children}
         </main>
       </body>

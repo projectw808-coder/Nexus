@@ -15,11 +15,13 @@ export default function RootError({
   }, [error]);
 
   return (
-    <ErrorState
-      message="Something went wrong on our side."
-      remediation="We have been notified. If this persists, contact support with the reference below."
-      reference={error.digest ?? null}
-      onRetry={retry}
-    />
+    <div className="mx-auto w-full max-w-5xl px-4 py-8">
+      <ErrorState
+        message="Something went wrong on our side."
+        remediation="We have been notified. If this persists, contact support with the reference below."
+        reference={error.digest ?? null}
+        onRetry={retry}
+      />
+    </div>
   );
 }
